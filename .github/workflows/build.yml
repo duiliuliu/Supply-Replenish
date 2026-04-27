@@ -10,7 +10,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ windows-latest, macos-latest, ubuntu-latest ]
+        include:
+          - os: windows-latest
+            os-name: Windows
+          - os: macos-14
+            os-name: Mac-ARM
+          - os: macos-13
+            os-name: Mac-Intel
+          - os: ubuntu-latest
+            os-name: Linux
 
     steps:
     - uses: actions/checkout@v4
@@ -32,7 +40,7 @@ jobs:
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.os }}-build
+        name: ${{ matrix.os-name }}-build
         path: dist/
 
   release:

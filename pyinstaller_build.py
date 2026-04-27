@@ -13,7 +13,12 @@ def get_platform_name():
     if system == 'windows':
         return 'Windows'
     elif system == 'darwin':
-        return 'Mac'
+        # 检测 Mac 架构
+        machine = platform.machine().lower()
+        if machine in ['arm64', 'aarch64']:
+            return 'Mac-ARM'
+        else:
+            return 'Mac-Intel'
     elif system == 'linux':
         return 'Linux'
     return system.capitalize()
