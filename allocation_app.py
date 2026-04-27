@@ -97,11 +97,11 @@ class AllocationApp:
             self.root.update()
             
             # 执行分配
-            allocation_result, stores_sorted, skus = allocate_add_order(
+            allocation_result, allocation_reasons, stores_sorted, skus = allocate_add_order(
                 df_inventory, df_sales, df_store_level, df_add_order
             )
             
-            self.result_df = generate_result_dataframe(allocation_result, stores_sorted, skus)
+            self.result_df, self.reason_df = generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus)
             
             self.show_preview()
             
@@ -144,7 +144,9 @@ class AllocationApp:
         
         if save_path:
             try:
-                self.result_df.to_excel(save_path, index=False)
+                with pd.ExcelWriter(save_path, engine='openpyxl') as writer:
+                    self.result_df.to_excel(writer, sheet_name='分配数量', index=False)
+                    self.reason_df.to_excel(writer, sheet_name='分配原因', index=False)
                 messagebox.showinfo("保存成功", f"结果已保存到:\n{save_path}")
             except Exception as e:
                 messagebox.showerror("保存失败", str(e))
