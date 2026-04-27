@@ -4,6 +4,10 @@ import sys
 import os
 import platform
 
+# 设置编码为UTF-8
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
 def get_platform_name():
     system = platform.system().lower()
     if system == 'windows':
@@ -22,8 +26,8 @@ def build_app():
     platform_name = get_platform_name()
     app_name = f'加单分配系统_v3_{platform_name}'
     
-    print(f'当前平台：{platform_name}')
-    print(f'应用名称：{app_name}')
+    print(f'Current platform: {platform_name}')
+    print(f'App name: {app_name}')
     
     # 打包参数
     args = [
@@ -33,33 +37,27 @@ def build_app():
         '--onefile',   # 打包成单个文件
         '--clean',
         '--noconfirm',
+        '--hidden-import=allocation_core',
     ]
     
-    # 平台特定配置
-    if platform_name == 'Windows':
-        args.append('--add-data=allocation_core.py;.')
-        args.append('--icon=NONE')
-    else:
-        args.append('--add-data=allocation_core.py:.')
-    
-    print('开始打包应用程序...')
-    print('使用参数:', args)
+    print('Starting build process...')
+    print('Using arguments:', args)
     
     try:
         PyInstaller.__main__.run(args)
         
-        print('\n✅ 打包完成！')
-        print(f'可执行文件位于：{os.path.join(current_dir, "dist")} 目录下')
+        print('\n✅ Build completed!')
+        print(f'Executable located in: {os.path.join(current_dir, "dist")} directory')
         
         if platform_name == 'Windows':
-            print(f'\nWindows版本：{app_name}.exe')
+            print(f'\nWindows version: {app_name}.exe')
         elif platform_name == 'Mac':
-            print(f'\nMac版本：{app_name}.app')
+            print(f'\nMac version: {app_name}.app')
         else:
-            print(f'\nLinux版本：{app_name}')
+            print(f'\nLinux version: {app_name}')
         
     except Exception as e:
-        print(f'\n❌ 打包失败：{e}')
+        print(f'\n❌ Build failed: {e}')
 
 if __name__ == '__main__':
     build_app()

@@ -1,0 +1,23 @@
+# Excel files
+*.xlsx
+*.xls
+*.xlsm
+
+# PyInstaller build files
+dist/
+build/
+*.spec
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
