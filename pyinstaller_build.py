@@ -33,14 +33,8 @@ def build_app():
         '--onefile',   # 打包成单个文件
         '--clean',
         '--noconfirm',
+        '--hidden-import=allocation_core',
     ]
-    
-    # 平台特定配置
-    if platform_name == 'Windows':
-        args.append('--add-data=allocation_core.py;.')
-        args.append('--icon=NONE')
-    else:
-        args.append('--add-data=allocation_core.py:.')
     
     print('开始打包应用程序...')
     print('使用参数:', args)
