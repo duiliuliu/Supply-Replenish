@@ -102,7 +102,9 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
-                    if not allocation_reasons[store][sku]:
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',断码修复({to_allocate})'
+                    else:
                         allocation_reasons[store][sku] = f'断码修复({to_allocate})'
         
         # 2. 销量匹配
@@ -120,7 +122,9 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
-                    if not allocation_reasons[store][sku]:
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',销量匹配({to_allocate})'
+                    else:
                         allocation_reasons[store][sku] = f'销量匹配({to_allocate})'
         
         # 3. B/C/D/OL级按销尽率降序
@@ -144,7 +148,9 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
-                    if not allocation_reasons[store][sku]:
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',销尽率优先({to_allocate})'
+                    else:
                         allocation_reasons[store][sku] = f'销尽率优先({to_allocate})'
         
         # 4. 剩余分配
@@ -160,7 +166,9 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
-                    if not allocation_reasons[store][sku]:
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',剩余分配({to_allocate})'
+                    else:
                         allocation_reasons[store][sku] = f'剩余分配({to_allocate})'
     
     return allocation_result, allocation_reasons, stores_sorted, skus

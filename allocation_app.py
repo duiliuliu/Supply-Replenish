@@ -36,12 +36,12 @@ class AllocationApp:
         btn_frame.pack(pady=20)
         
         self.run_btn = tk.Button(btn_frame, text="执行加单分配", command=self.run_allocation, 
-                               font=("Arial", 12), bg="#4CAF50", fg="white", width=18)
+                               font=("Arial", 12), bg="#2E7D32", fg="#F5F5F5", width=18)
         self.run_btn.pack(side=tk.LEFT, padx=10)
         self.run_btn.config(state=tk.DISABLED)
         
         self.save_btn = tk.Button(btn_frame, text="保存结果", command=self.save_result, 
-                                 font=("Arial", 12), bg="#2196F3", fg="white", width=12)
+                                 font=("Arial", 12), bg="#1565C0", fg="#F5F5F5", width=12)
         self.save_btn.pack(side=tk.LEFT, padx=10)
         self.save_btn.config(state=tk.DISABLED)
         
