@@ -13,10 +13,8 @@ jobs:
         include:
           - os: windows-latest
             os-name: Windows
-          - os: macos-14
-            os-name: Mac-ARM
-          - os: macos-13
-            os-name: Mac-Intel
+          - os: macos-latest
+            os-name: Mac
           - os: ubuntu-latest
             os-name: Linux
 
