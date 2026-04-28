@@ -51,7 +51,6 @@ class AllocationApp:
                 ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
             ]
             
-            self.drag_data = {"index": -1, "item": None, "y": 0}
             self.stage_frames = []
             
             self.setup_styles()
@@ -76,8 +75,8 @@ class AllocationApp:
         style.configure("Title.TLabel", font=("SF Pro Display", 24, "bold"), background="#F5F7FA", foreground="#1F2937")
         style.configure("Subtitle.TLabel", font=("SF Pro Display", 14), background="#F5F7FA", foreground="#6B7280")
         
-        style.configure("Treeview", font=("SF Pro Display", 12), rowheight=32, background="#FFFFFF", foreground="#1F2937", borderwidth=0)
-        style.configure("Treeview.Heading", font=("SF Pro Display", 12, "bold"), background="#F9FAFB", foreground="#374151", borderwidth=0, relief=tk.FLAT)
+        style.configure("Treeview", font=("SF Pro Display", 12), rowheight=32, background="#FFFFFF", foreground="#1F2937")
+        style.configure("Treeview.Heading", font=("SF Pro Display", 12, "bold"), background="#F9FAFB", foreground="#374151")
         style.map("Treeview", background=[("selected", "#EFF6FF")], foreground=[("selected", "#2563EB")])
     
     def create_widgets(self):
@@ -272,24 +271,45 @@ class AllocationApp:
         self.create_logic_stages()
     
     def create_logic_stages(self):
+        # 阶段顺序控制区域
         order_frame = tk.Frame(self.logic_content, bg="#FFFFFF")
         order_frame.pack(fill=tk.X, pady=(0, 16))
         
-        order_label = tk.Label(order_frame, text="阶段顺序调整 (输入1-3的数字排列，如: 213)", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#374151")
+        order_label = tk.Label(order_frame, text="阶段顺序调整", font=("SF Pro Display", 12, "bold"), bg="#FFFFFF", fg="#374151")
         order_label.pack(side=tk.LEFT)
         
-        self.order_entry = tk.Entry(order_frame, width=12, font=("SF Pro Display", 12), justify="center", 
-                                   bg="#E0E7FF", fg="#1F2937", relief=tk.FLAT, borderwidth=0, highlightthickness=1, 
-                                   highlightbackground="#C7D2FE", highlightcolor="#93C5FD")
-        self.order_entry.pack(side=tk.LEFT, padx=(12, 0))
-        self.order_entry.insert(0, "123")
+        # 阶段下拉框
+        self.stage_vars = []
+        for i in range(3):
+            stage_container = tk.Frame(order_frame, bg="#FFFFFF")
+            stage_container.pack(side=tk.LEFT, padx=(8, 0))
+            
+            tk.Label(stage_container, text=f"第{i+1}阶段:", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#6B7280").pack(side=tk.LEFT)
+            
+            var = tk.StringVar()
+            self.stage_vars.append(var)
+            
+            cb = ttk.Combobox(stage_container, textvariable=var, state="readonly", width=10, font=("SF Pro Display", 11))
+            cb['values'] = [self.stage_list[0][1], self.stage_list[1][1], self.stage_list[2][1]]
+            cb.current(i)
+            cb.pack(side=tk.LEFT, padx=(4, 0))
+            
+            if i < 2:
+                tk.Label(order_frame, text="→", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#9CA3AF").pack(side=tk.LEFT, padx=(8, 0))
         
+        # 应用按钮
         apply_btn = tk.Button(order_frame, text="应用顺序", font=("SF Pro Display", 12), bg="#2563EB", fg="white", 
                              relief=tk.FLAT, padx=16, pady=6, cursor="hand2", command=self.apply_stage_order)
-        apply_btn.pack(side=tk.LEFT, padx=(12, 0))
+        apply_btn.pack(side=tk.LEFT, padx=(16, 0))
         
+        # 恢复默认按钮
+        reset_btn = tk.Button(order_frame, text="恢复默认", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
+                             relief=tk.FLAT, padx=16, pady=6, cursor="hand2", command=self.reset_stage_order)
+        reset_btn.pack(side=tk.LEFT, padx=(8, 0))
+        
+        # 阶段展示区域
         self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
-        self.stages_container.pack(fill=tk.X)
+        self.stages_container.pack(fill=tk.X, pady=(12, 0))
         
         self.stage_frames = []
         
@@ -299,7 +319,8 @@ class AllocationApp:
     def _create_stage_item(self, idx, stage_id, name, desc):
         bg_color, fg_color = self.stage_colors[idx]
         
-        stage_frame = tk.Frame(self.stages_container, bg=bg_color, bd=1, relief=tk.FLAT)
+        stage_frame = tk.Frame(self.stages_container, bg=bg_color)
+        stage_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
         stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
         
         stage_content = tk.Frame(stage_frame, bg=bg_color)
@@ -327,23 +348,50 @@ class AllocationApp:
             arrow_label.pack(fill=tk.BOTH, expand=True)
     
     def apply_stage_order(self):
-        order_str = self.order_entry.get().strip()
-        if len(order_str) != 3:
-            messagebox.showwarning("提示", "请输入3个数字(1-3)的排列，如: 123")
-            return
-        
         try:
-            order = [int(c) - 1 for c in order_str]
-            if sorted(order) != [0, 1, 2]:
-                raise ValueError()
-        except:
-            messagebox.showwarning("提示", "请输入有效的排列(1-3各出现一次)，如: 123")
-            return
+            # 获取用户选择的阶段顺序
+            selected_names = [var.get() for var in self.stage_vars]
+            
+            # 检查是否有重复选择
+            if len(set(selected_names)) != 3:
+                messagebox.showwarning("提示", "请确保每个阶段只选择一次！")
+                return
+            
+            # 根据选择的名称重新排序stage_list
+            name_to_stage = {stage[1]: stage for stage in self.stage_list[:3]}
+            new_stage_list = [name_to_stage[name] for name in selected_names]
+            new_stage_list.extend(self.stage_list[3:])
+            self.stage_list = new_stage_list
+            
+            # 重新渲染阶段展示
+            for widget in self.stages_container.winfo_children():
+                widget.destroy()
+            
+            self.stage_frames = []
+            
+            for i, (stage_id, name, desc) in enumerate(self.stage_list):
+                self._create_stage_item(i, stage_id, name, desc)
+            
+            messagebox.showinfo("成功", "阶段顺序已更新！")
+        except Exception as e:
+            print(f"apply_stage_order error: {e}")
+            traceback.print_exc()
+            messagebox.showerror("错误", f"应用顺序失败:\n{str(e)}")
+    
+    def reset_stage_order(self):
+        # 恢复默认顺序
+        self.stage_list = [
+            ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+            ("sales_match", "销量匹配", "依据历史销速加权分配"),
+            ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+            ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+        ]
         
-        new_stage_list = [self.stage_list[i] for i in order]
-        new_stage_list.extend(self.stage_list[3:])
-        self.stage_list = new_stage_list
+        # 重置下拉框
+        for i, var in enumerate(self.stage_vars):
+            var.set(self.stage_list[i][1])
         
+        # 重新渲染阶段展示
         for widget in self.stages_container.winfo_children():
             widget.destroy()
         
@@ -352,7 +400,7 @@ class AllocationApp:
         for i, (stage_id, name, desc) in enumerate(self.stage_list):
             self._create_stage_item(i, stage_id, name, desc)
         
-        messagebox.showinfo("成功", "阶段顺序已更新")
+        messagebox.showinfo("成功", "已恢复默认阶段顺序！")
     
     def toggle_logic(self, event=None):
         if self.logic_expanded:
@@ -441,7 +489,7 @@ class AllocationApp:
         tree_container = tk.Frame(result_card, bg="#FFFFFF")
         tree_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 14))
         
-        self.tree = ttk.Treeview(tree_container, show="headings", borderwidth=0)
+        self.tree = ttk.Treeview(tree_container, show="headings")
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
@@ -449,7 +497,7 @@ class AllocationApp:
         self.tree.configure(yscrollcommand=scrollbar.set)
     
     def create_status_bar(self, parent):
-        status_frame = tk.Frame(parent, bg="#FFFFFF", bd=1, relief=tk.FLAT)
+        status_frame = tk.Frame(parent, bg="#FFFFFF")
         status_frame.pack(fill=tk.X, pady=(8, 0))
         status_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
         
