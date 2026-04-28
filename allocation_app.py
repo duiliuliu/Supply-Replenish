@@ -490,8 +490,13 @@ class AllocationApp:
             df_store_level = pd.read_excel(self.file_path, sheet_name="卖场等级")
             df_add_order = pd.read_excel(self.file_path, sheet_name="加单数量")
             
+            config = self.config if self.config else {}
+            if "allocation_config" not in config:
+                config["allocation_config"] = {}
+            config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
+            
             allocation_result, allocation_reasons, stores_sorted, skus, store_level_map = allocate_add_order(
-                df_inventory, df_sales, df_store_level, df_add_order, self.config
+                df_inventory, df_sales, df_store_level, df_add_order, config
             )
             
             self.result_df, self.reason_df = generate_result_dataframe(
