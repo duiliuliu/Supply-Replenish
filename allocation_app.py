@@ -369,9 +369,17 @@ class AllocationApp:
         try:
             selected_names = [var.get() for var in self.stage_vars]
             
+            # 验证选择完整性
             if len(set(selected_names)) != 3:
                 messagebox.showwarning("提示", "请确保每个阶段只选择一次！")
                 return
+            
+            # 验证所有选择都有效
+            all_valid_names = ["断码修复", "销量匹配", "销尽率优先"]
+            for name in selected_names:
+                if name not in all_valid_names:
+                    messagebox.showerror("错误", f"无效的阶段名称: {name}")
+                    return
             
             # 构建完整的阶段映射（包括所有可能的阶段名）
             all_stage_map = {
@@ -380,26 +388,46 @@ class AllocationApp:
                 "销尽率优先": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
             }
             
-            new_stage_list = [all_stage_map[name] for name in selected_names]
+            # 安全构建新的阶段列表
+            new_stage_list = []
+            for name in selected_names:
+                if name in all_stage_map:
+                    new_stage_list.append(all_stage_map[name])
+            
+            # 确保我们有3个阶段
+            if len(new_stage_list) != 3:
+                messagebox.showerror("错误", "阶段构建失败，请重试")
+                return
+            
             new_stage_list.append(("remaining_allocation", "剩余分配", "尾量零散SKU随机填充"))
             self.stage_list = new_stage_list
             
+            # 更新配置
             if "allocation_config" not in self.config:
                 self.config["allocation_config"] = {}
             self.config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
             
-            # 更新阶段显示
-            for widget in self.stages_container.winfo_children():
-                widget.destroy()
+            # 安全更新阶段显示
+            if hasattr(self, 'stages_container') and self.stages_container:
+                for widget in self.stages_container.winfo_children():
+                    try:
+                        widget.destroy()
+                    except:
+                        pass
             
             self.stage_frames = []
             
             for i, (stage_id, name, desc) in enumerate(self.stage_list):
-                self._create_stage_item(i, stage_id, name, desc)
+                try:
+                    self._create_stage_item(i, stage_id, name, desc)
+                except Exception as e:
+                    print(f"创建阶段 {i} 失败: {e}")
             
-            # 更新下拉框显示为新的顺序
-            for i, var in enumerate(self.stage_vars):
-                var.set(self.stage_list[i][1])
+            # 安全更新下拉框显示为新的顺序
+            if hasattr(self, 'stage_vars'):
+                for i, var in enumerate(self.stage_vars):
+                    if i < len(self.stage_list):
+                        var.set(self.stage_list[i][1])
             
             messagebox.showinfo("成功", "阶段顺序已更新！")
         except Exception as e:
@@ -417,22 +445,32 @@ class AllocationApp:
             ]
             self.stage_list = default_stage_list.copy()
             
+            # 更新配置
             if "allocation_config" not in self.config:
                 self.config["allocation_config"] = {}
             self.config["allocation_config"]["stage_priority"] = ["broken_size_fix", "sales_match", "sell_through_priority"]
             
-            # 更新阶段显示
-            for widget in self.stages_container.winfo_children():
-                widget.destroy()
+            # 安全更新阶段显示
+            if hasattr(self, 'stages_container') and self.stages_container:
+                for widget in self.stages_container.winfo_children():
+                    try:
+                        widget.destroy()
+                    except:
+                        pass
             
             self.stage_frames = []
             
             for i, (stage_id, name, desc) in enumerate(self.stage_list):
-                self._create_stage_item(i, stage_id, name, desc)
+                try:
+                    self._create_stage_item(i, stage_id, name, desc)
+                except Exception as e:
+                    print(f"创建阶段 {i} 失败: {e}")
             
-            # 更新下拉框显示为新的顺序
-            for i, var in enumerate(self.stage_vars):
-                var.set(self.stage_list[i][1])
+            # 安全更新下拉框显示为新的顺序
+            if hasattr(self, 'stage_vars'):
+                for i, var in enumerate(self.stage_vars):
+                    if i < len(self.stage_list):
+                        var.set(self.stage_list[i][1])
             
             messagebox.showinfo("成功", "已恢复默认阶段顺序！")
         except Exception as e:
