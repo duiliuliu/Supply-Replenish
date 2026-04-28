@@ -1,94 +1,76 @@
-# 加单商品分配系统 v2.5
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
-import json
 import os
 import sys
 import traceback
-
-try:
-    from allocation_core import allocate_add_order, generate_result_dataframe, load_config, DEFAULT_CONFIG
-except Exception as e:
-    print(f'Failed to import allocation_core: {e}')
-    from collections import defaultdict
-    
-    def allocate_add_order(*args, **kwargs):
-        return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
-    
-    def generate_result_dataframe(*args, **kwargs):
-        return pd.DataFrame(), pd.DataFrame()
-    
-    load_config = lambda: DEFAULT_CONFIG
+import json
+from allocation_core import allocate_add_order, generate_result_dataframe, DEFAULT_CONFIG, load_config
 
 class AllocationApp:
-    def __init__(self, root):
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("加单商品分配系统 v2.5")
+        self.root.geometry("1100x900")
+        self.root.minsize(1000, 800)
+        self.root.configure(bg="#F5F7FA")
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        self.file_path = None
+        self.result_df = None
+        self.reason_df = None
+        
         try:
-            self.root = root
-            self.root.title("加单商品分配系统")
-            self.root.geometry("1100x1050")
-            self.root.configure(bg="#F5F7FA")
-            self.root.minsize(950, 850)
-            
-            self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-            
-            # 初始化配置
-            try:
-                self.config = load_config()
-            except:
-                from allocation_core import DEFAULT_CONFIG
-                self.config = DEFAULT_CONFIG
-            
-            self.file_path = None
-            self.result_df = None
-            self.reason_df = None
-            
-            self.stage_colors = [
-                ("#E8F5FF", "#2563EB"),
-                ("#F0FDF4", "#059669"),
-                ("#FFF3E0", "#D97706"),
-                ("#F5F3FF", "#7C3AED"),
-            ]
-            
-            # 从配置中获取阶段顺序或使用默认
-            stage_names = {
-                "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-            }
-            
-            default_stage_list = [
-                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-            ]
-            
-            remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
-            
-            # 构建阶段列表
-            config_priority = self.config.get('allocation_config', {}).get('stage_priority', [])
-            self.stage_list = []
-            for stage_id in config_priority:
-                if stage_id in stage_names:
-                    self.stage_list.append(stage_names[stage_id])
-            
-            # 如果配置中阶段不完整，用默认补充
-            if len(self.stage_list) != 3:
-                self.stage_list = default_stage_list.copy()
-            
-            self.stage_list.append(remaining_stage)
-            
-            self.stage_frames = []
-            self.stage_vars = []  # 用于存储下拉框变量
-            
-            self.setup_styles()
-            self.create_widgets()
-            
-            print('应用程序初始化成功')
-        except Exception as e:
-            print(f'初始化错误: {e}')
-            traceback.print_exc()
-            messagebox.showerror("初始化错误", f"程序初始化失败:\n{str(e)}")
+            self.config = load_config()
+        except:
+            self.config = DEFAULT_CONFIG
+        
+        self.stage_colors = [
+            ("#E8F5FF", "#2563EB"),
+            ("#F0FDF4", "#059669"),
+            ("#FFF3E0", "#D97706"),
+            ("#F5F3FF", "#7C3AED"),
+        ]
+        
+        stage_names = {
+            "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+            "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
+            "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+        }
+        
+        default_stage_list = [
+            ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+            ("sales_match", "销量匹配", "依据历史销速加权分配"),
+            ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+        ]
+        
+        remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+        
+        config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
+        self.stage_list = []
+        for stage_id in config_priority:
+            if stage_id in stage_names:
+                self.stage_list.append(stage_names[stage_id])
+        
+        if len(self.stage_list) != 3:
+            self.stage_list = default_stage_list.copy()
+        
+        self.stage_list.append(remaining_stage)
+        
+        self.stage_frames = []
+        self.stage_vars = []
+        
+        self.setup_styles()
+        self.create_widgets()
+        
+        print('应用程序初始化成功')
+    except Exception as e:
+        print(f'初始化错误: {e}')
+        traceback.print_exc()
+        messagebox.showerror("初始化错误", f"程序初始化失败:\n{str(e)}")
     
     def on_closing(self):
         try:
@@ -108,15 +90,30 @@ class AllocationApp:
         style.map("Treeview", background=[("selected", "#EFF6FF")], foreground=[("selected", "#2563EB")])
     
     def create_widgets(self):
-        main_frame = tk.Frame(self.root, bg="#F5F7FA")
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=24, pady=20)
+        main_container = tk.Frame(self.root, bg="#F5F7FA")
+        main_container.pack(fill=tk.BOTH, expand=True)
         
-        self.create_header(main_frame)
-        self.create_config_section(main_frame)
-        self.create_logic_section(main_frame)
-        self.create_file_upload_section(main_frame)
-        self.create_result_section(main_frame)
-        self.create_status_bar(main_frame)
+        canvas = tk.Canvas(main_container, bg="#F5F7FA", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg="#F5F7FA")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True, padx=24, pady=20)
+        scrollbar.pack(side="right", fill="y")
+        
+        self.create_header(scrollable_frame)
+        self.create_config_section(scrollable_frame)
+        self.create_logic_section(scrollable_frame)
+        self.create_file_upload_section(scrollable_frame)
+        self.create_result_section(scrollable_frame)
+        self.create_status_bar(scrollable_frame)
     
     def create_header(self, parent):
         header_frame = tk.Frame(parent, bg="#F5F7FA")
@@ -143,7 +140,7 @@ class AllocationApp:
         config_card = self.create_card_frame(parent)
         config_card.pack(fill=tk.X, pady=(0, 16))
         
-        self.config_expanded = False
+        self.config_expanded = True
         
         header_frame = tk.Frame(config_card, bg="#FFFFFF")
         header_frame.pack(fill=tk.X, pady=14, padx=20)
@@ -178,10 +175,7 @@ class AllocationApp:
             row_frame = tk.Frame(self.config_content, bg="#FFFFFF")
             row_frame.pack(fill=tk.X, pady=(0, 14))
             
-            label_frame = tk.Frame(row_frame, bg="#FFFFFF", width=120)
-            label_frame.pack(side=tk.LEFT, anchor=tk.N)
-            label_frame.pack_propagate(False)
-            tk.Label(label_frame, text=section_title, font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151").pack(anchor=tk.W)
+            tk.Label(row_frame, text=section_title, font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151", width=14, anchor="w").pack(side=tk.LEFT, padx=(0, 20))
             
             entry_frame = tk.Frame(row_frame, bg="#FFFFFF")
             entry_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
@@ -191,7 +185,7 @@ class AllocationApp:
             
             for i, level in enumerate(levels):
                 item_frame = tk.Frame(entry_frame, bg="#FFFFFF")
-                item_frame.pack(side=tk.LEFT, padx=(32 if i == 0 else 24, 0))
+                item_frame.pack(side=tk.LEFT, padx=(0 if i == 0 else 16, 0))
                 
                 level_label = tk.Label(item_frame, text=level, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280")
                 level_label.pack(anchor=tk.W)
@@ -248,6 +242,7 @@ class AllocationApp:
     def save_config(self):
         config = {
             "version": "2.5",
+            "updated_at": "2026-04-28",
             "allocation_config": {
                 "coverage_days": {},
                 "level_weights": {},
@@ -267,11 +262,13 @@ class AllocationApp:
                     pass
         
         config_path = os.path.join(os.path.dirname(__file__), "allocation_config.json")
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
-        
-        self.config = config
-        messagebox.showinfo("成功", "配置已保存!")
+        try:
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            self.config = config
+            messagebox.showinfo("成功", "配置已保存")
+        except Exception as e:
+            messagebox.showerror("错误", f"保存配置失败: {str(e)}")
     
     def create_logic_section(self, parent):
         logic_card = self.create_card_frame(parent)
@@ -299,43 +296,35 @@ class AllocationApp:
         self.create_logic_stages()
     
     def create_logic_stages(self):
-        # 阶段顺序控制区域
         order_frame = tk.Frame(self.logic_content, bg="#FFFFFF")
         order_frame.pack(fill=tk.X, pady=(0, 16))
         
-        order_label = tk.Label(order_frame, text="阶段顺序调整", font=("SF Pro Display", 12, "bold"), bg="#FFFFFF", fg="#374151")
+        order_label = tk.Label(order_frame, text="阶段顺序调整", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151")
         order_label.pack(side=tk.LEFT)
         
-        # 阶段下拉框
         self.stage_vars = []
+        stage_options = ["断码修复", "销量匹配", "销尽率优先"]
         for i in range(3):
             stage_container = tk.Frame(order_frame, bg="#FFFFFF")
-            stage_container.pack(side=tk.LEFT, padx=(8, 0))
+            stage_container.pack(side=tk.LEFT, padx=(16, 0))
             
-            tk.Label(stage_container, text=f"第{i+1}阶段:", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#6B7280").pack(side=tk.LEFT)
+            tk.Label(stage_container, text=f"第{i+1}阶段:", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280").pack(side=tk.LEFT)
             
             var = tk.StringVar()
+            var.set(self.stage_list[i][1])
             self.stage_vars.append(var)
             
-            cb = ttk.Combobox(stage_container, textvariable=var, state="readonly", width=10, font=("SF Pro Display", 11))
-            cb['values'] = [self.stage_list[0][1], self.stage_list[1][1], self.stage_list[2][1]]
-            cb.current(i)
+            cb = ttk.Combobox(stage_container, textvariable=var, values=stage_options, state="readonly", width=12, font=("SF Pro Display", 12))
             cb.pack(side=tk.LEFT, padx=(4, 0))
-            
-            if i < 2:
-                tk.Label(order_frame, text="→", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#9CA3AF").pack(side=tk.LEFT, padx=(8, 0))
         
-        # 应用按钮
-        apply_btn = tk.Button(order_frame, text="应用顺序", font=("SF Pro Display", 12), bg="#2563EB", fg="white", 
+        apply_btn = tk.Button(order_frame, text="应用顺序", font=("SF Pro Display", 12, "bold"), bg="#2563EB", fg="white", 
                              relief=tk.FLAT, padx=16, pady=6, cursor="hand2", command=self.apply_stage_order)
-        apply_btn.pack(side=tk.LEFT, padx=(16, 0))
+        apply_btn.pack(side=tk.LEFT, padx=(24, 0))
         
-        # 恢复默认按钮
-        reset_btn = tk.Button(order_frame, text="恢复默认", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
+        reset_stage_btn = tk.Button(order_frame, text="恢复默认", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
                              relief=tk.FLAT, padx=16, pady=6, cursor="hand2", command=self.reset_stage_order)
-        reset_btn.pack(side=tk.LEFT, padx=(8, 0))
+        reset_stage_btn.pack(side=tk.LEFT, padx=(8, 0))
         
-        # 阶段展示区域
         self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
         self.stages_container.pack(fill=tk.X, pady=(12, 0))
         
@@ -377,27 +366,21 @@ class AllocationApp:
     
     def apply_stage_order(self):
         try:
-            # 获取用户选择的阶段顺序
             selected_names = [var.get() for var in self.stage_vars]
             
-            # 检查是否有重复选择
             if len(set(selected_names)) != 3:
                 messagebox.showwarning("提示", "请确保每个阶段只选择一次！")
                 return
             
-            # 根据选择的名称重新排序stage_list
             name_to_stage = {stage[1]: stage for stage in self.stage_list[:3]}
             new_stage_list = [name_to_stage[name] for name in selected_names]
-            new_stage_list.extend(self.stage_list[3:])
+            new_stage_list.append(self.stage_list[3])
             self.stage_list = new_stage_list
             
-            # 同步更新到self.config
-            new_priority = [stage[0] for stage in self.stage_list[:3]]
-            if 'allocation_config' not in self.config:
-                self.config['allocation_config'] = {}
-            self.config['allocation_config']['stage_priority'] = new_priority
+            if "allocation_config" not in self.config:
+                self.config["allocation_config"] = {}
+            self.config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
             
-            # 重新渲染阶段展示
             for widget in self.stages_container.winfo_children():
                 widget.destroy()
             
@@ -413,7 +396,6 @@ class AllocationApp:
             messagebox.showerror("错误", f"应用顺序失败:\n{str(e)}")
     
     def reset_stage_order(self):
-        # 恢复默认顺序
         default_stage_list = [
             ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
             ("sales_match", "销量匹配", "依据历史销速加权分配"),
@@ -422,16 +404,13 @@ class AllocationApp:
         ]
         self.stage_list = default_stage_list.copy()
         
-        # 同步更新到self.config
-        if 'allocation_config' not in self.config:
-            self.config['allocation_config'] = {}
-        self.config['allocation_config']['stage_priority'] = ["broken_size_fix", "sales_match", "sell_through_priority"]
+        if "allocation_config" not in self.config:
+            self.config["allocation_config"] = {}
+        self.config["allocation_config"]["stage_priority"] = ["broken_size_fix", "sales_match", "sell_through_priority"]
         
-        # 重置下拉框
         for i, var in enumerate(self.stage_vars):
             var.set(self.stage_list[i][1])
         
-        # 重新渲染阶段展示
         for widget in self.stages_container.winfo_children():
             widget.destroy()
         
@@ -461,22 +440,32 @@ class AllocationApp:
         file_zone = tk.Frame(upload_inner, bg="#FFFFFF")
         file_zone.config(highlightbackground="#D1D5DB", highlightcolor="#D1D5DB", highlightthickness=1)
         file_zone.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 16))
-        file_zone.config(highlightbackground="#D1D5DB", highlightcolor="#D1D5DB", highlightthickness=1)
         
         file_zone.bind("<Button-1>", lambda e: self.browse_file())
         file_zone.config(cursor="hand2")
         
         zone_content = tk.Frame(file_zone, bg="#FFFFFF")
         zone_content.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
+        zone_content.bind("<Button-1>", lambda e: self.browse_file())
+        zone_content.config(cursor="hand2")
         
         cloud_icon = tk.Label(zone_content, text="☁", font=("Arial", 48), bg="#FFFFFF", fg="#9CA3AF")
         cloud_icon.pack(pady=(0, 12))
+        cloud_icon.bind("<Button-1>", lambda e: self.browse_file())
+        cloud_icon.config(cursor="hand2")
         
         title_label = tk.Label(zone_content, text="拖拽或点击上传清单", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
         title_label.pack()
+        title_label.bind("<Button-1>", lambda e: self.browse_file())
+        title_label.config(cursor="hand2")
         
         desc_label = tk.Label(zone_content, text="支持 .xlsx, .csv 格式，单次处理上限 10,000 行", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#6B7280")
         desc_label.pack(pady=(6, 0))
+        desc_label.bind("<Button-1>", lambda e: self.browse_file())
+        desc_label.config(cursor="hand2")
+        
+        self.file_name_label = tk.Label(zone_content, text="", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#2563EB")
+        self.file_name_label.pack(pady=(8, 0))
         
         action_zone = tk.Frame(upload_inner, bg="#2563EB", width=320)
         action_zone.pack(side=tk.RIGHT, fill=tk.BOTH)
@@ -505,7 +494,7 @@ class AllocationApp:
     
     def create_result_section(self, parent):
         result_card = self.create_card_frame(parent)
-        result_card.pack(fill=tk.BOTH, expand=True)
+        result_card.pack(fill=tk.BOTH, expand=True, pady=(0, 16))
         
         header_frame = tk.Frame(result_card, bg="#FFFFFF")
         header_frame.pack(fill=tk.X, pady=14, padx=20)
@@ -535,42 +524,43 @@ class AllocationApp:
         scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.configure(yscrollcommand=scrollbar.set)
+        
+        hscrollbar = ttk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.tree.xview)
+        hscrollbar.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
+        self.tree.configure(xscrollcommand=hscrollbar.set)
     
     def create_status_bar(self, parent):
         status_frame = tk.Frame(parent, bg="#FFFFFF")
-        status_frame.pack(fill=tk.X, pady=(8, 0))
+        status_frame.pack(fill=tk.X)
         status_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
         
-        left_frame = tk.Frame(status_frame, bg="#FFFFFF")
-        left_frame.pack(side=tk.LEFT, padx=16, pady=6)
+        self.status_label = tk.Label(status_frame, text="  ○ 等待操作", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#9CA3AF", anchor="w")
+        self.status_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=16, pady=12)
         
-        self.status_icon = tk.Label(left_frame, text="○", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#9CA3AF")
-        self.status_icon.pack(side=tk.LEFT)
-        
-        self.status_label = tk.Label(left_frame, text="系统在线", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#059669")
-        self.status_label.pack(side=tk.LEFT, padx=(6, 12))
-        
-        right_frame = tk.Frame(status_frame, bg="#FFFFFF")
-        right_frame.pack(side=tk.RIGHT, padx=16)
-        
-        sync_label = tk.Label(right_frame, text="上次同步: 10:45 AM", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280")
-        sync_label.pack()
+        sync_label = tk.Label(status_frame, text="上次同步: 2026-04-28 10:45", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#9CA3AF")
+        sync_label.pack(side=tk.RIGHT, padx=16, pady=12)
     
     def browse_file(self):
-        self.file_path = filedialog.askopenfilename(
+        file_path = filedialog.askopenfilename(
             title="选择Excel文件",
-            filetypes=[("Excel Files", "*.xlsx *.xlsm"), ("CSV Files", "*.csv"), ("All Files", "*.*")]
+            filetypes=[("Excel files", "*.xlsx *.xlsm"), ("All files", "*.*")]
         )
-        
-        if self.file_path:
+        if file_path:
+            self.file_path = file_path
+            self.file_name_label.config(text=os.path.basename(file_path))
+            self.update_status(f"✓ 文件已选择: {os.path.basename(file_path)}", "#2563EB")
             self.run_btn.config(state=tk.NORMAL, cursor="hand2")
-            self.run_btn.bind("<Enter>", lambda e: self.run_btn.config(bg="#F3F4F6"))
-            self.run_btn.bind("<Leave>", lambda e: self.run_btn.config(bg="#FFFFFF"))
-            self.update_status("文件已选择，点击执行开始分配", "info")
+    
+    def update_status(self, text, color="#6B7280"):
+        self.status_label.config(text=f"  {text}", fg=color)
     
     def run_allocation(self):
+        if not self.file_path:
+            messagebox.showwarning("提示", "请先选择Excel文件")
+            return
+        
         try:
-            self.update_status("处理中...", "warning")
+            self.update_status("● 处理中...", "#D97706")
             self.root.update()
             
             df_inventory = pd.read_excel(self.file_path, sheet_name="库存")
@@ -591,79 +581,58 @@ class AllocationApp:
                 allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
             )
             
-            self.show_preview()
+            self.display_result()
+            
+            self.update_status("✓ 分配完成", "#059669")
             self.save_btn.config(state=tk.NORMAL, cursor="hand2")
-            self.update_status("分配完成", "success")
             
-            messagebox.showinfo("成功", "加单分配完成!")
+            messagebox.showinfo("成功", "加单分配完成")
         except Exception as e:
-            print(f'run_allocation error: {e}')
+            print(f"分配错误: {e}")
             traceback.print_exc()
-            self.update_status("执行失败: " + str(e), "error")
-            messagebox.showerror("错误", "执行失败:\n" + str(e))
+            self.update_status(f"✗ 执行失败: {str(e)}", "#DC2626")
+            messagebox.showerror("错误", f"执行分配失败:\n{str(e)}")
     
-    def update_status(self, text, status="info"):
-        colors = {
-            "info": ("#6B7280", "○"),
-            "success": ("#059669", "✓"),
-            "warning": ("#D97706", "●"),
-            "error": ("#DC2626", "✗")
-        }
-        fg_color, icon = colors.get(status, colors["info"])
-        self.status_label.config(text=text, fg=fg_color)
-        self.status_icon.config(text=icon, fg=fg_color)
-    
-    def show_preview(self):
-        for col in self.tree.get_children():
-            self.tree.delete(col)
+    def display_result(self):
+        if self.result_df is None or len(self.result_df) == 0:
+            return
         
-        if self.result_df is not None and len(self.result_df) > 0:
-            columns = list(self.result_df.columns)
-            self.tree["columns"] = columns
-            
-            for col in columns:
-                self.tree.heading(col, text=col)
-                self.tree.column(col, width=120, anchor="center")
-            
-            for idx, row in self.result_df.head(20).iterrows():
-                values = list(row)
-                self.tree.insert("", "end", values=values)
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        columns = list(self.result_df.columns)
+        self.tree["columns"] = columns
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=100)
+        
+        for _, row in self.result_df.head(20).iterrows():
+            self.tree.insert("", tk.END, values=list(row))
     
     def save_result(self):
         if self.result_df is None:
             messagebox.showwarning("提示", "请先执行分配")
             return
         
-        save_path = filedialog.asksaveasfilename(
+        file_path = filedialog.asksaveasfilename(
             title="保存分配结果",
             defaultextension=".xlsx",
-            filetypes=[("Excel Files", "*.xlsx")]
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")]
         )
-        
-        if save_path:
-            with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
-                self.result_df.to_excel(writer, sheet_name="分配数量", index=False)
-                self.reason_df.to_excel(writer, sheet_name="分配原因", index=False)
-            
-            messagebox.showinfo("成功", f"结果已保存到:\n{save_path}")
-
-def main():
-    try:
-        print('启动加单商品分配系统...')
-        
-        root = tk.Tk()
-        app = AllocationApp(root)
-        root.mainloop()
-    except Exception as e:
-        print(f'程序主错误: {e}')
-        traceback.print_exc()
-        
-        try:
-            messagebox.showerror("程序错误", f"程序发生严重错误:\n{str(e)}")
-        except:
-            pass
-        
-        sys.exit(1)
+        if file_path:
+            try:
+                with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                    self.result_df.to_excel(writer, sheet_name="分配数量", index=False)
+                    self.reason_df.to_excel(writer, sheet_name="分配原因", index=False)
+                messagebox.showinfo("成功", f"结果已保存到:\n{file_path}")
+            except Exception as e:
+                messagebox.showerror("错误", f"保存结果失败:\n{str(e)}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        app = AllocationApp()
+        app.root.mainloop()
+    except Exception as e:
+        print(f"启动错误: {e}")
+        traceback.print_exc()
+        messagebox.showerror("启动错误", f"程序启动失败:\n{str(e)}")
