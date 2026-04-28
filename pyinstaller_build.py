@@ -6,8 +6,10 @@ import platform
 import toml
 
 # 设置编码为UTF-8
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
 
 def get_version():
     """从pyproject.toml获取版本号"""
@@ -60,6 +62,11 @@ def build_app():
         '--add-data=allocation_config.json:.',
     ]
     
+    # 在Mac上添加图标支持
+    if platform_name.startswith('Mac'):
+        # 确保是--onefile模式，这样打包后只有单个.app
+        pass
+    
     print('Starting build process...')
     print('Using arguments:', args)
     
@@ -67,14 +74,38 @@ def build_app():
         PyInstaller.__main__.run(args)
         
         print('\n✅ Build completed!')
-        print(f'Executable located in: {os.path.join(current_dir, "dist")} directory')
+        
+        dist_path = os.path.join(current_dir, 'dist')
+        print(f'Dist path: {dist_path}')
+        
+        if os.path.exists(dist_path):
+            contents = os.listdir(dist_path)
+            print(f'Contents of dist: {contents}')
         
         if platform_name.startswith('Mac'):
-            print(f'\nMac version: {app_name}.app')
+            app_path = os.path.join(dist_path, f'{app_name}.app')
+            print(f'\nChecking for app at: {app_path}')
+            if os.path.exists(app_path):
+                print(f'✅ App bundle created successfully!')
+            else:
+                print(f'⚠️ Warning: App not found, checking directory...')
+                app_dir_path = os.path.join(dist_path, app_name)
+                if os.path.exists(app_dir_path):
+                    print(f'✅ Directory created successfully!')
+                else:
+                    print(f'⚠️ Warning: Expected output not found')
+                    if os.path.exists(dist_path):
+                        print(f'Contents of dist: {os.listdir(dist_path)}')
         elif platform_name == 'Windows':
-            print(f'\nWindows version: {app_name}.exe')
+            exe_path = os.path.join(dist_path, f'{app_name}.exe')
+            print(f'\nWindows version: {exe_path}')
+            if os.path.exists(exe_path):
+                print(f'✅ EXE created successfully!')
         else:
-            print(f'\nLinux version: {app_name}')
+            bin_path = os.path.join(dist_path, app_name)
+            print(f'\nLinux version: {bin_path}')
+            if os.path.exists(bin_path):
+                print(f'✅ Binary created successfully!')
         
     except Exception as e:
         print(f'\n❌ Build failed: {e}')

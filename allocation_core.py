@@ -2,6 +2,7 @@
 import pandas as pd
 import json
 import os
+import sys
 from collections import defaultdict
 
 DEFAULT_CONFIG = {
@@ -29,24 +30,45 @@ DEFAULT_CONFIG = {
 }
 
 def load_config():
-    import sys
-    
+    """加载配置文件，包含多个路径尝试"""
     config_paths = []
     
+    # 先尝试PyInstaller打包时的路径
     if getattr(sys, 'frozen', False):
         config_paths.append(os.path.join(sys._MEIPASS, 'allocation_config.json'))
-        config_paths.append(os.path.join(os.path.dirname(sys.executable), 'allocation_config.json'))
+        if sys.platform == 'darwin':
+            # Mac .app的Contents目录
+            content_path = os.path.dirname(sys.executable)
+            config_paths.append(os.path.join(content_path, 'allocation_config.json'))
+        else:
+            config_paths.append(os.path.join(os.path.dirname(sys.executable), 'allocation_config.json'))
     
-    config_paths.append(os.path.join(os.path.dirname(__file__), 'allocation_config.json'))
+    # 当前工作目录
+    config_paths.append('allocation_config.json')
+    
+    # 源代码目录
+    try:
+        script_path = os.path.dirname(os.path.abspath(__file__))
+        config_paths.append(os.path.join(script_path, 'allocation_config.json'))
+    except:
+        pass
+    
+    print(f'Trying to load config from: {config_paths}')
     
     for config_path in config_paths:
-        if os.path.exists(config_path):
-            try:
+        try:
+            if os.path.exists(config_path):
+                print(f'Loading config from {config_path}')
                 with open(config_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f'Warning: Error reading config from {config_path}: {e}')
+                    config = json.load(f)
+                    print('Config loaded successfully')
+                    return config
+        except Exception as e:
+            print(f'Warning: Error reading config from {config_path}: {e}')
+            continue
     
+    # 如果找不到配置文件，使用默认配置
+    print('Using default config')
     return DEFAULT_CONFIG
 
 def get_30day_sales(df_sales, sku, store_code):
