@@ -1,0 +1,31 @@
+{
+  "version": "2.0",
+  "updated_at": "2026-04-28",
+  "allocation_config": {
+    "coverage_days": {
+      "SA": 30,
+      "A": 30,
+      "B": 14,
+      "C": 14,
+      "D": 14,
+      "OL": 14
+    },
+    "level_weights": {
+      "SA": 1.5,
+      "A": 1.3,
+      "B": 1.2,
+      "C": 1.1,
+      "D": 1.1,
+      "OL": 1.0
+    },
+    "safety_factors": {
+      "SA": 0.5,
+      "A": 0.4,
+      "B": 0.3,
+      "C": 0.25,
+      "D": 0.2,
+      "OL": 0.2
+    },
+    "max_remaining_per_store": 10
+  }
+}
