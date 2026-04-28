@@ -266,15 +266,28 @@ class AllocationApp:
         logic_title = tk.Label(header_frame, text="分配逻辑说明", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
         logic_title.pack(side=tk.LEFT, padx=(8, 0))
         
-        drag_hint = tk.Label(header_frame, text="(可拖拽调整前三个阶段顺序)", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#9CA3AF")
-        drag_hint.pack(side=tk.LEFT, padx=(12, 0))
-        
         self.logic_content = tk.Frame(logic_card, bg="#FFFFFF")
         self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
         
         self.create_logic_stages()
     
     def create_logic_stages(self):
+        order_frame = tk.Frame(self.logic_content, bg="#FFFFFF")
+        order_frame.pack(fill=tk.X, pady=(0, 16))
+        
+        order_label = tk.Label(order_frame, text="阶段顺序调整 (输入1-3的数字排列，如: 213)", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#374151")
+        order_label.pack(side=tk.LEFT)
+        
+        self.order_entry = tk.Entry(order_frame, width=12, font=("SF Pro Display", 12), justify="center", 
+                                   bg="#E0E7FF", fg="#1F2937", relief=tk.FLAT, borderwidth=0, highlightthickness=1, 
+                                   highlightbackground="#C7D2FE", highlightcolor="#93C5FD")
+        self.order_entry.pack(side=tk.LEFT, padx=(12, 0))
+        self.order_entry.insert(0, "123")
+        
+        apply_btn = tk.Button(order_frame, text="应用顺序", font=("SF Pro Display", 12), bg="#2563EB", fg="white", 
+                             relief=tk.FLAT, padx=16, pady=6, cursor="hand2", command=self.apply_stage_order)
+        apply_btn.pack(side=tk.LEFT, padx=(12, 0))
+        
         self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
         self.stages_container.pack(fill=tk.X)
         
@@ -288,12 +301,6 @@ class AllocationApp:
         
         stage_frame = tk.Frame(self.stages_container, bg=bg_color, bd=1, relief=tk.FLAT)
         stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
-        
-        if idx < 3:
-            stage_frame.bind("<ButtonPress-1>", lambda e, idx=idx: self._on_stage_press(e, idx))
-            stage_frame.bind("<B1-Motion>", lambda e, idx=idx: self._on_stage_drag(e, idx))
-            stage_frame.bind("<ButtonRelease-1>", lambda e, idx=idx: self._on_stage_release(e, idx))
-            stage_frame.config(cursor="hand2", highlightbackground="#2563EB", highlightcolor="#2563EB", highlightthickness=2)
         
         stage_content = tk.Frame(stage_frame, bg=bg_color)
         stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
@@ -311,10 +318,6 @@ class AllocationApp:
         stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
         stage_desc_label.pack()
         
-        if idx < 3:
-            drag_label = tk.Label(stage_content, text="⋮⋮", font=("SF Pro Display", 10), bg=bg_color, fg="#9CA3AF")
-            drag_label.pack(pady=(8, 0))
-        
         self.stage_frames.append((stage_id, stage_frame))
         
         if idx < 3:
@@ -323,44 +326,33 @@ class AllocationApp:
             arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
             arrow_label.pack(fill=tk.BOTH, expand=True)
     
-    def _on_stage_press(self, event, index):
-        self.drag_data["index"] = index
-        self.drag_data["y"] = event.y_root
-        self.drag_data["item"] = self.stage_frames[index][1]
-        self.drag_data["item"].config(highlightbackground="#2563EB", highlightcolor="#2563EB", highlightthickness=3)
-        self.drag_data["item"].config(cursor="hand2")
-    
-    def _on_stage_drag(self, event, index):
-        if self.drag_data["index"] == -1:
+    def apply_stage_order(self):
+        order_str = self.order_entry.get().strip()
+        if len(order_str) != 3:
+            messagebox.showwarning("提示", "请输入3个数字(1-3)的排列，如: 123")
             return
         
-        delta_y = event.y_root - self.drag_data["y"]
-        if abs(delta_y) > 30:
-            direction = 1 if delta_y > 0 else -1
-            new_index = index + direction
-            
-            if 0 <= new_index < 3:
-                self.stage_list[index], self.stage_list[new_index] = self.stage_list[new_index], self.stage_list[index]
-                
-                for stage_id, widget in self.stage_frames:
-                    widget.pack_forget()
-                
-                for widget in self.stages_container.winfo_children():
-                    widget.destroy()
-                
-                self.stage_frames = []
-                
-                for i, (stage_id, name, desc) in enumerate(self.stage_list):
-                    self._create_stage_item(i, stage_id, name, desc)
-                
-                self.drag_data["index"] = new_index
-                self.drag_data["y"] = event.y_root
-    
-    def _on_stage_release(self, event, index):
-        if self.drag_data["item"]:
-            self.drag_data["item"].config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=2)
-            self.drag_data["item"].config(cursor="hand2")
-        self.drag_data = {"index": -1, "item": None, "y": 0}
+        try:
+            order = [int(c) - 1 for c in order_str]
+            if sorted(order) != [0, 1, 2]:
+                raise ValueError()
+        except:
+            messagebox.showwarning("提示", "请输入有效的排列(1-3各出现一次)，如: 123")
+            return
+        
+        new_stage_list = [self.stage_list[i] for i in order]
+        new_stage_list.extend(self.stage_list[3:])
+        self.stage_list = new_stage_list
+        
+        for widget in self.stages_container.winfo_children():
+            widget.destroy()
+        
+        self.stage_frames = []
+        
+        for i, (stage_id, name, desc) in enumerate(self.stage_list):
+            self._create_stage_item(i, stage_id, name, desc)
+        
+        messagebox.showinfo("成功", "阶段顺序已更新")
     
     def toggle_logic(self, event=None):
         if self.logic_expanded:
@@ -378,7 +370,8 @@ class AllocationApp:
         upload_inner = tk.Frame(upload_frame, bg="#F5F7FA")
         upload_inner.pack(fill=tk.X)
         
-        file_zone = tk.Frame(upload_inner, bg="#FFFFFF", bd=2, relief=tk.DASHED)
+        file_zone = tk.Frame(upload_inner, bg="#FFFFFF")
+        file_zone.config(highlightbackground="#D1D5DB", highlightcolor="#D1D5DB", highlightthickness=1)
         file_zone.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 16))
         file_zone.config(highlightbackground="#D1D5DB", highlightcolor="#D1D5DB", highlightthickness=1)
         
