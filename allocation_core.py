@@ -138,6 +138,9 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                         allocation_reasons[store][sku] = f'断码修复({to_allocate})'
         
         # 阶段2: 销量匹配（基于供应链公式）
+        # 设置最小目标库存，确保即使销量为0也有基础库存
+        min_target_by_level = {'SA': 3, 'A': 2, 'B': 2, 'C': 2, 'D': 1, 'OL': 1}
+        
         for store in stores_sorted:
             if remaining_qty <= 0:
                 break
@@ -150,6 +153,10 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
             safety_factor = safety_factors.get(level, 0.3)
             safety_stock = daily_demand * safety_factor * coverage
             target_inv = int(daily_demand * coverage + safety_stock)
+            
+            # 应用最小目标库存
+            min_target = min_target_by_level.get(level, 2)
+            target_inv = max(target_inv, min_target)
             
             current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
             
