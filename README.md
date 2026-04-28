@@ -103,14 +103,34 @@
 | 销尽率优先(N) | 对B/C/D/OL级卖场，按销尽率（销量/总库存）降序排序，优先分配给销尽率高的卖场。N为本次分配数量。 |
 | 剩余分配(N) | 将剩余商品分配给所有卖场，确保每个卖场的单个尺码库存不超过15件。N为本次分配数量。 |
 
+## 下载地址
+
+### Release 页面
+[![GitHub Release](https://img.shields.io/github/v/release/duiliuliu/Supply-Replenish)](https://github.com/duiliuliu/Supply-Replenish/releases)
+
+您可以从 [GitHub Releases](https://github.com/duiliuliu/Supply-Replenish/releases) 页面下载最新版本的可执行文件。
+
+### 各平台下载链接
+
+| 平台 | 文件名称 | 直接下载链接 |
+| --- | --- | --- |
+| Windows | `加单分配系统_v3_Windows.exe` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.2/加单分配系统_v3_Windows.exe) |
+| macOS (ARM) | `加单分配系统_v3_Mac-ARM.app` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.2/加单分配系统_v3_Mac-ARM.app) |
+| macOS (Intel) | `加单分配系统_v3_Mac-Intel.app` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.2/加单分配系统_v3_Mac-Intel.app) |
+| Linux | `加单分配系统_v3_Linux` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.2/加单分配系统_v3_Linux) |
+
+### 选择正确的版本
+
+- **Windows 用户**：下载 `加单分配系统_v3_Windows.exe`
+- **Mac 用户**：
+  - Apple Silicon（M1/M2/M3芯片）：下载 `加单分配系统_v3_Mac-ARM.app`
+  - Intel 芯片：下载 `加单分配系统_v3_Mac-Intel.app`
+- **Linux 用户**：下载 `加单分配系统_v3_Linux`
+
 ## 使用说明
 
 ### 运行系统
-1. 下载对应平台的可执行文件：
-   - Windows：`加单分配系统_v3_Windows.exe`
-   - macOS：`加单分配系统_v3_Mac.app`
-   - Linux：`加单分配系统_v3_Linux`
-
+1. 从上述链接下载对应平台的可执行文件
 2. 启动系统后，点击"浏览"按钮选择包含所需数据的Excel文件
 3. 点击"执行加单分配"按钮开始分配过程
 4. 查看分配结果预览（前20行）
