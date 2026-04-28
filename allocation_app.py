@@ -54,6 +54,9 @@ class AllocationApp:
                 ("sell_through_priority", "销尽率优先")
             ]
             
+            # 拖拽相关变量
+            self.drag_data = {"index": -1, "item": None, "y": 0}
+            
             self.setup_styles()
             self.create_widgets()
             
@@ -282,14 +285,21 @@ class AllocationApp:
             bg_color, fg_color = self.stage_colors[idx]
             stage_name = [name for id, name in self.stage_list if id == stage_id][0]
             
-            stage_item = tk.Frame(self.stage_display_frame, bg=bg_color)
+            stage_item = tk.Frame(self.stage_display_frame, bg=bg_color, bd=0, highlightthickness=2, highlightbackground="#E5E7EB")
             stage_item.pack(fill=tk.X, pady=(0, 8))
+            
+            # 设置拖拽处理
+            stage_item.bind("<ButtonPress-1>", lambda e, idx=idx: self._on_stage_press(e, idx))
+            stage_item.bind("<B1-Motion>", lambda e, idx=idx: self._on_stage_drag(e, idx))
+            stage_item.bind("<ButtonRelease-1>", lambda e, idx=idx: self._on_stage_release(e, idx))
+            stage_item.config(cursor="grab")
             
             tk.Label(stage_item, text=f"{idx+1}", font=("SF Pro Display", 12, "bold"), bg=fg_color, fg="white", width=4, padx=6, pady=8).pack(side=tk.LEFT)
             
             stage_info = tk.Frame(stage_item, bg=bg_color)
             stage_info.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=14, pady=8)
             tk.Label(stage_info, text=stage_name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg=fg_color).pack(anchor=tk.W)
+            tk.Label(stage_info, text="拖拽调整顺序", font=("SF Pro Display", 10), bg=bg_color, fg="#9CA3AF").pack(anchor=tk.W, pady=(2, 0))
             
             btn_container = tk.Frame(stage_item, bg=bg_color)
             btn_container.pack(side=tk.RIGHT, padx=10)
@@ -307,6 +317,43 @@ class AllocationApp:
             self.stage_labels.append((stage_id, stage_item))
         except Exception as e:
             print(f'_create_stage_item error: {e}')
+    
+    def _on_stage_press(self, event, index):
+        try:
+            self.drag_data["index"] = index
+            self.drag_data["y"] = event.y
+            self.drag_data["item"] = self.stage_labels[index][1]
+            self.drag_data["item"].config(highlightbackground="#2563EB", highlightcolor="#2563EB")
+            self.drag_data["item"].config(cursor="grabbing")
+        except Exception as e:
+            print(f'_on_stage_press error: {e}')
+    
+    def _on_stage_drag(self, event, index):
+        try:
+            if self.drag_data["index"] == -1:
+                return
+            
+            # 计算鼠标移动方向
+            delta_y = event.y - self.drag_data["y"]
+            if abs(delta_y) > 20:
+                direction = 1 if delta_y > 0 else -1
+                new_index = index + direction
+                
+                if 0 <= new_index < len(self.stage_labels):
+                    self.move_stage(index, direction)
+                    self.drag_data["index"] = new_index
+                    self.drag_data["y"] = event.y
+        except Exception as e:
+            print(f'_on_stage_drag error: {e}')
+    
+    def _on_stage_release(self, event, index):
+        try:
+            if self.drag_data["item"]:
+                self.drag_data["item"].config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB")
+                self.drag_data["item"].config(cursor="grab")
+            self.drag_data = {"index": -1, "item": None, "y": 0}
+        except Exception as e:
+            print(f'_on_stage_release error: {e}')
     
     def create_button(self, parent, text, style="primary"):
         try:
