@@ -293,7 +293,7 @@ class AllocationApp:
             stage_frame.bind("<ButtonPress-1>", lambda e, idx=idx: self._on_stage_press(e, idx))
             stage_frame.bind("<B1-Motion>", lambda e, idx=idx: self._on_stage_drag(e, idx))
             stage_frame.bind("<ButtonRelease-1>", lambda e, idx=idx: self._on_stage_release(e, idx))
-            stage_frame.config(cursor="grab", highlightbackground="#2563EB", highlightcolor="#2563EB", highlightthickness=2)
+            stage_frame.config(cursor="hand2", highlightbackground="#2563EB", highlightcolor="#2563EB", highlightthickness=2)
         
         stage_content = tk.Frame(stage_frame, bg=bg_color)
         stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
@@ -328,7 +328,7 @@ class AllocationApp:
         self.drag_data["y"] = event.y_root
         self.drag_data["item"] = self.stage_frames[index][1]
         self.drag_data["item"].config(highlightbackground="#2563EB", highlightcolor="#2563EB", highlightthickness=3)
-        self.drag_data["item"].config(cursor="grabbing")
+        self.drag_data["item"].config(cursor="hand2")
     
     def _on_stage_drag(self, event, index):
         if self.drag_data["index"] == -1:
@@ -359,7 +359,7 @@ class AllocationApp:
     def _on_stage_release(self, event, index):
         if self.drag_data["item"]:
             self.drag_data["item"].config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=2)
-            self.drag_data["item"].config(cursor="grab")
+            self.drag_data["item"].config(cursor="hand2")
         self.drag_data = {"index": -1, "item": None, "y": 0}
     
     def toggle_logic(self, event=None):
