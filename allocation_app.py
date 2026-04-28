@@ -9,9 +9,9 @@ from allocation_core import allocate_add_order, generate_result_dataframe, load_
 class AllocationApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("加单商品分配系统 v2.0")
-        self.root.geometry("1000x850")
-        self.root.configure(bg="#F8F9FA")
+        self.root.title("加单商品分配系统")
+        self.root.geometry("1050x880")
+        self.root.configure(bg="#FFFFFF")
         
         self.config = load_config()
         self.file_path = None
@@ -25,30 +25,31 @@ class AllocationApp:
         style = ttk.Style()
         style.theme_use('clam')
         
-        style.configure('Title.TLabel', font=('Microsoft YaHei', 20, 'bold'), background='#F8F9FA', foreground='#1A1A2E')
-        style.configure('Section.TLabelframe', font=('Microsoft YaHei', 11, 'bold'), background='#FFFFFF')
-        style.configure('Section.TLabelframe.Label', font=('Microsoft YaHei', 11, 'bold'), foreground='#2D3436', background='#FFFFFF')
-        style.configure('Config.TLabel', font=('Microsoft YaHei', 10), background='#FFFFFF', foreground='#2D3436')
-        style.configure('Status.TLabel', font=('Microsoft YaHei', 10), background='#F8F9FA', foreground='#636E72')
+        style.configure('Title.TLabel', font=('SF Pro Display', 22, 'bold'), background='#FFFFFF', foreground='#1A1A1A')
+        style.configure('Section.TLabelframe', font=('SF Pro Display', 13, 'bold'), background='#FFFFFF', borderwidth=0)
+        style.configure('Section.TLabelframe.Label', font=('SF Pro Display', 13, 'bold'), foreground='#1A1A1A', background='#FFFFFF')
+        style.configure('Config.TLabel', font=('SF Pro Display', 12), background='#FFFFFF', foreground='#6B6B6B')
+        style.configure('Status.TLabel', font=('SF Pro Display', 12), background='#FFFFFF', foreground='#6B6B6B')
         
-        style.configure('Primary.TButton', font=('Microsoft YaHei', 11, 'bold'), padding=(20, 10))
-        style.configure('Secondary.TButton', font=('Microsoft YaHei', 10), padding=(10, 5))
+        style.configure('Primary.TButton', font=('SF Pro Display', 12, 'bold'), padding=(24, 12))
+        style.configure('Secondary.TButton', font=('SF Pro Display', 11), padding=(12, 6))
         
-        style.configure('Treeview', font=('Microsoft YaHei', 9), rowheight=28)
-        style.configure('Treeview.Heading', font=('Microsoft YaHei', 10, 'bold'))
+        style.configure('Treeview', font=('SF Pro Display', 11), rowheight=28, background='#FFFFFF', foreground='#1A1A1A')
+        style.configure('Treeview.Heading', font=('SF Pro Display', 11, 'bold'), background='#F7F7F7', foreground='#1A1A1A')
+        style.map('Treeview', background=[('selected', '#1A1A1A')], foreground=[('selected', '#FFFFFF')])
     
     def create_widgets(self):
-        main_frame = tk.Frame(self.root, bg='#F8F9FA')
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
+        main_frame = tk.Frame(self.root, bg='#FFFFFF')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=24, pady=20)
         
-        title_frame = tk.Frame(main_frame, bg='#F8F9FA')
-        title_frame.pack(fill=tk.X, pady=(0, 15))
+        title_frame = tk.Frame(main_frame, bg='#FFFFFF')
+        title_frame.pack(fill=tk.X, pady=(0, 20))
         
         title_label = ttk.Label(title_frame, text="加单商品分配系统", style='Title.TLabel')
         title_label.pack(side=tk.LEFT)
         
-        version_label = tk.Label(title_frame, text="v2.0", font=('Microsoft YaHei', 10), bg='#F8F9FA', fg='#636E72')
-        version_label.pack(side=tk.LEFT, padx=(10, 0), pady=(8, 0))
+        version_label = tk.Label(title_frame, text="v2.0", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#9B9B9B')
+        version_label.pack(side=tk.LEFT, padx=(12, 0), pady=(8, 0))
         
         self.create_config_section(main_frame)
         self.create_logic_section(main_frame)
@@ -58,92 +59,101 @@ class AllocationApp:
         self.create_result_section(main_frame)
     
     def create_config_section(self, parent):
-        config_frame = tk.LabelFrame(parent, text=" 参数配置 ", font=('Microsoft YaHei', 11, 'bold'), bg='#FFFFFF', fg='#2D3436', padx=15, pady=10)
-        config_frame.pack(fill=tk.X, pady=(0, 10))
+        config_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
+        config_frame.pack(fill=tk.X, pady=(0, 16))
+        
+        config_card = tk.Frame(config_frame, bg='#F7F7F7', relief=tk.SOLID, borderwidth=1, bd=1)
+        config_card.pack(fill=tk.X, padx=0, pady=0)
+        config_card.config(borderwidth=1, relief=tk.SOLID, bg='#FFFFFF')
         
         self.config_expanded = False
         
-        header_frame = tk.Frame(config_frame, bg='#FFFFFF')
-        header_frame.pack(fill=tk.X)
+        header_frame = tk.Frame(config_card, bg='#FFFFFF')
+        header_frame.pack(fill=tk.X, pady=16, padx=16)
+        header_frame.bind('<Button-1>', self.toggle_config)
+        header_frame.config(cursor='hand2')
         
-        self.config_toggle = tk.Label(header_frame, text="▶", font=('Microsoft YaHei', 12), bg='#FFFFFF', fg='#0984E3', cursor='hand2')
-        self.config_toggle.pack(side=tk.LEFT)
-        self.config_toggle.bind('<Button-1>', self.toggle_config)
+        self.config_toggle = tk.Label(header_frame, text="▼", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#1A1A1A')
+        self.config_toggle.pack(side=tk.RIGHT)
         
-        config_title = tk.Label(header_frame, text="点击展开/折叠参数配置", font=('Microsoft YaHei', 10), bg='#FFFFFF', fg='#636E72', cursor='hand2')
-        config_title.pack(side=tk.LEFT, padx=(5, 0))
-        config_title.bind('<Button-1>', self.toggle_config)
+        config_title = tk.Label(header_frame, text="参数配置", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A')
+        config_title.pack(side=tk.LEFT)
         
-        self.config_content = tk.Frame(config_frame, bg='#FFFFFF')
+        self.config_content = tk.Frame(config_card, bg='#FFFFFF')
+        self.config_content.pack(fill=tk.X, padx=16, pady=(0, 16))
         
         levels = ['SA', 'A', 'B', 'C', 'D', 'OL']
         
         coverage_frame = tk.Frame(self.config_content, bg='#FFFFFF')
-        coverage_frame.pack(fill=tk.X, pady=(10, 5))
+        coverage_frame.pack(fill=tk.X, pady=(0, 16))
         
-        tk.Label(coverage_frame, text="覆盖周期（天）:", font=('Microsoft YaHei', 10, 'bold'), bg='#FFFFFF', fg='#2D3436').pack(side=tk.LEFT)
+        tk.Label(coverage_frame, text="覆盖周期（天）", font=('SF Pro Display', 12, 'bold'), bg='#FFFFFF', fg='#1A1A1A').pack(side=tk.LEFT, anchor=tk.N)
         
         self.coverage_entries = {}
         for i, level in enumerate(levels):
             frame = tk.Frame(coverage_frame, bg='#FFFFFF')
-            frame.pack(side=tk.LEFT, padx=(15 if i == 0 else 10, 0))
+            frame.pack(side=tk.LEFT, padx=(20 if i == 0 else 16, 0))
             
-            tk.Label(frame, text=level, font=('Microsoft YaHei', 9), bg='#FFFFFF', fg='#636E72').pack(side=tk.LEFT)
+            tk.Label(frame, text=level, font=('SF Pro Display', 11), bg='#FFFFFF', fg='#6B6B6B').pack(side=tk.TOP, pady=(0, 4))
             
-            entry = tk.Entry(frame, width=5, font=('Microsoft YaHei', 10), justify='center')
-            entry.pack(side=tk.LEFT, padx=(3, 0))
+            entry = tk.Entry(frame, width=8, font=('SF Pro Display', 12), justify='center', bg='#F7F7F7', relief=tk.SOLID, borderwidth=1)
+            entry.pack(side=tk.TOP)
             entry.insert(0, str(self.config.get('allocation_config', {}).get('coverage_days', {}).get(level, 14)))
             self.coverage_entries[level] = entry
         
         weight_frame = tk.Frame(self.config_content, bg='#FFFFFF')
-        weight_frame.pack(fill=tk.X, pady=5)
+        weight_frame.pack(fill=tk.X, pady=(0, 16))
         
-        tk.Label(weight_frame, text="等级权重:", font=('Microsoft YaHei', 10, 'bold'), bg='#FFFFFF', fg='#2D3436').pack(side=tk.LEFT)
+        tk.Label(weight_frame, text="等级权重", font=('SF Pro Display', 12, 'bold'), bg='#FFFFFF', fg='#1A1A1A').pack(side=tk.LEFT, anchor=tk.N)
         
         self.weight_entries = {}
         for i, level in enumerate(levels):
             frame = tk.Frame(weight_frame, bg='#FFFFFF')
-            frame.pack(side=tk.LEFT, padx=(15 if i == 0 else 10, 0))
+            frame.pack(side=tk.LEFT, padx=(20 if i == 0 else 16, 0))
             
-            tk.Label(frame, text=level, font=('Microsoft YaHei', 9), bg='#FFFFFF', fg='#636E72').pack(side=tk.LEFT)
+            tk.Label(frame, text=level, font=('SF Pro Display', 11), bg='#FFFFFF', fg='#6B6B6B').pack(side=tk.TOP, pady=(0, 4))
             
-            entry = tk.Entry(frame, width=5, font=('Microsoft YaHei', 10), justify='center')
-            entry.pack(side=tk.LEFT, padx=(3, 0))
+            entry = tk.Entry(frame, width=8, font=('SF Pro Display', 12), justify='center', bg='#F7F7F7', relief=tk.SOLID, borderwidth=1)
+            entry.pack(side=tk.TOP)
             entry.insert(0, str(self.config.get('allocation_config', {}).get('level_weights', {}).get(level, 1.0)))
             self.weight_entries[level] = entry
         
         safety_frame = tk.Frame(self.config_content, bg='#FFFFFF')
-        safety_frame.pack(fill=tk.X, pady=5)
+        safety_frame.pack(fill=tk.X, pady=(0, 16))
         
-        tk.Label(safety_frame, text="安全系数:", font=('Microsoft YaHei', 10, 'bold'), bg='#FFFFFF', fg='#2D3436').pack(side=tk.LEFT)
+        tk.Label(safety_frame, text="安全系数", font=('SF Pro Display', 12, 'bold'), bg='#FFFFFF', fg='#1A1A1A').pack(side=tk.LEFT, anchor=tk.N)
         
         self.safety_entries = {}
         for i, level in enumerate(levels):
             frame = tk.Frame(safety_frame, bg='#FFFFFF')
-            frame.pack(side=tk.LEFT, padx=(15 if i == 0 else 10, 0))
+            frame.pack(side=tk.LEFT, padx=(20 if i == 0 else 16, 0))
             
-            tk.Label(frame, text=level, font=('Microsoft YaHei', 9), bg='#FFFFFF', fg='#636E72').pack(side=tk.LEFT)
+            tk.Label(frame, text=level, font=('SF Pro Display', 11), bg='#FFFFFF', fg='#6B6B6B').pack(side=tk.TOP, pady=(0, 4))
             
-            entry = tk.Entry(frame, width=5, font=('Microsoft YaHei', 10), justify='center')
-            entry.pack(side=tk.LEFT, padx=(3, 0))
+            entry = tk.Entry(frame, width=8, font=('SF Pro Display', 12), justify='center', bg='#F7F7F7', relief=tk.SOLID, borderwidth=1)
+            entry.pack(side=tk.TOP)
             entry.insert(0, str(self.config.get('allocation_config', {}).get('safety_factors', {}).get(level, 0.3)))
             self.safety_entries[level] = entry
         
         btn_frame = tk.Frame(self.config_content, bg='#FFFFFF')
-        btn_frame.pack(fill=tk.X, pady=(10, 0))
+        btn_frame.pack(fill=tk.X, pady=(0, 8))
         
-        reset_btn = tk.Button(btn_frame, text="恢复默认值", font=('Microsoft YaHei', 9), bg='#DFE6E9', fg='#2D3436', relief=tk.FLAT, padx=15, pady=5, cursor='hand2', command=self.reset_config)
-        reset_btn.pack(side=tk.LEFT)
+        reset_btn = tk.Button(btn_frame, text="恢复默认值", font=('SF Pro Display', 11), bg='#F7F7F7', fg='#6B6B6B', relief=tk.SOLID, borderwidth=1, padx=20, pady=8, cursor='hand2', command=self.reset_config)
+        reset_btn.pack(side=tk.RIGHT)
+        reset_btn.bind('<Enter>', lambda e: reset_btn.config(bg='#E5E5E5'))
+        reset_btn.bind('<Leave>', lambda e: reset_btn.config(bg='#F7F7F7'))
         
-        save_btn = tk.Button(btn_frame, text="保存配置", font=('Microsoft YaHei', 9), bg='#0984E3', fg='white', relief=tk.FLAT, padx=15, pady=5, cursor='hand2', command=self.save_config)
-        save_btn.pack(side=tk.LEFT, padx=(10, 0))
+        save_btn = tk.Button(btn_frame, text="保存配置", font=('SF Pro Display', 11, 'bold'), bg='#1A1A1A', fg='white', relief=tk.FLAT, padx=20, pady=8, cursor='hand2', command=self.save_config)
+        save_btn.pack(side=tk.RIGHT, padx=(12, 0))
+        save_btn.bind('<Enter>', lambda e: save_btn.config(bg='#333333'))
+        save_btn.bind('<Leave>', lambda e: save_btn.config(bg='#1A1A1A'))
     
     def toggle_config(self, event=None):
         if self.config_expanded:
             self.config_content.pack_forget()
             self.config_toggle.config(text="▶")
         else:
-            self.config_content.pack(fill=tk.X, pady=(5, 0))
+            self.config_content.pack(fill=tk.X, padx=16, pady=(0, 16))
             self.config_toggle.config(text="▼")
         self.config_expanded = not self.config_expanded
     
@@ -185,89 +195,113 @@ class AllocationApp:
             messagebox.showerror("错误", f"保存配置失败: {str(e)}")
     
     def create_logic_section(self, parent):
-        logic_frame = tk.LabelFrame(parent, text=" 分配逻辑说明 ", font=('Microsoft YaHei', 11, 'bold'), bg='#FFFFFF', fg='#2D3436', padx=15, pady=10)
-        logic_frame.pack(fill=tk.X, pady=(0, 10))
+        logic_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
+        logic_frame.pack(fill=tk.X, pady=(0, 16))
         
-        self.logic_expanded = False
+        logic_card = tk.Frame(logic_frame, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+        logic_card.pack(fill=tk.X)
         
-        header_frame = tk.Frame(logic_frame, bg='#FFFFFF')
-        header_frame.pack(fill=tk.X)
+        self.logic_expanded = True
         
-        self.logic_toggle = tk.Label(header_frame, text="▶", font=('Microsoft YaHei', 12), bg='#FFFFFF', fg='#0984E3', cursor='hand2')
-        self.logic_toggle.pack(side=tk.LEFT)
-        self.logic_toggle.bind('<Button-1>', self.toggle_logic)
+        header_frame = tk.Frame(logic_card, bg='#FFFFFF')
+        header_frame.pack(fill=tk.X, pady=16, padx=16)
+        header_frame.bind('<Button-1>', self.toggle_logic)
+        header_frame.config(cursor='hand2')
         
-        logic_title = tk.Label(header_frame, text="点击展开/折叠分配逻辑说明", font=('Microsoft YaHei', 10), bg='#FFFFFF', fg='#636E72', cursor='hand2')
-        logic_title.pack(side=tk.LEFT, padx=(5, 0))
-        logic_title.bind('<Button-1>', self.toggle_logic)
+        self.logic_toggle = tk.Label(header_frame, text="▼", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#1A1A1A')
+        self.logic_toggle.pack(side=tk.RIGHT)
         
-        self.logic_content = tk.Frame(logic_frame, bg='#FFFFFF')
+        logic_title = tk.Label(header_frame, text="分配逻辑说明", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A')
+        logic_title.pack(side=tk.LEFT)
+        
+        self.logic_content = tk.Frame(logic_card, bg='#FFFFFF')
+        self.logic_content.pack(fill=tk.X, padx=16, pady=(0, 16))
         
         stages = [
-            ("阶段1", "断码修复", "#E3F2FD", "#1976D2", "确保卖场达到最低库存要求"),
-            ("阶段2", "销量匹配", "#E8F5E9", "#388E3C", "根据销量和覆盖周期计算目标库存"),
-            ("阶段3", "销尽率优先", "#FFF8E1", "#F57C00", "按综合得分(销尽率×等级权重)分配"),
-            ("阶段4", "剩余分配", "#FCE4EC", "#C2185B", "按等级优先级分配剩余库存")
+            ("阶段1", "断码修复", "确保卖场达到最低库存要求"),
+            ("阶段2", "销量匹配", "根据销量和覆盖周期计算目标库存"),
+            ("阶段3", "销尽率优先", "按综合得分(销尽率×等级权重)分配"),
+            ("阶段4", "剩余分配", "按等级优先级分配剩余库存")
         ]
         
-        for stage_id, name, bg_color, border_color, desc in stages:
-            stage_frame = tk.Frame(self.logic_content, bg=bg_color, relief=tk.SOLID, borderwidth=1)
-            stage_frame.pack(fill=tk.X, pady=3)
+        for idx, (stage_id, name, desc) in enumerate(stages):
+            stage_frame = tk.Frame(self.logic_content, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+            stage_frame.pack(fill=tk.X, pady=(0 if idx == 0 else 8, 0))
             
-            stage_label = tk.Label(stage_frame, text=stage_id, font=('Microsoft YaHei', 10, 'bold'), bg=border_color, fg='white', width=6)
-            stage_label.pack(side=tk.LEFT, padx=(0, 10))
+            stage_label = tk.Label(stage_frame, text=stage_id, font=('SF Pro Display', 11, 'bold'), bg='#1A1A1A', fg='white', width=8, padx=0, pady=10)
+            stage_label.pack(side=tk.LEFT)
             
-            content_frame = tk.Frame(stage_frame, bg=bg_color)
-            content_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=5)
+            content_frame = tk.Frame(stage_frame, bg='#FFFFFF')
+            content_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=10, padx=12)
             
-            tk.Label(content_frame, text=name, font=('Microsoft YaHei', 10, 'bold'), bg=bg_color, fg='#2D3436').pack(anchor=tk.W)
-            tk.Label(content_frame, text=desc, font=('Microsoft YaHei', 9), bg=bg_color, fg='#636E72').pack(anchor=tk.W)
+            name_label = tk.Label(content_frame, text=name, font=('SF Pro Display', 11, 'bold'), bg='#FFFFFF', fg='#1A1A1A')
+            name_label.pack(anchor=tk.W)
+            
+            desc_label = tk.Label(content_frame, text=desc, font=('SF Pro Display', 11), bg='#FFFFFF', fg='#6B6B6B')
+            desc_label.pack(anchor=tk.W, pady=(4, 0))
     
     def toggle_logic(self, event=None):
         if self.logic_expanded:
             self.logic_content.pack_forget()
             self.logic_toggle.config(text="▶")
         else:
-            self.logic_content.pack(fill=tk.X, pady=(5, 0))
+            self.logic_content.pack(fill=tk.X, padx=16, pady=(0, 16))
             self.logic_toggle.config(text="▼")
         self.logic_expanded = not self.logic_expanded
     
     def create_file_section(self, parent):
-        file_frame = tk.LabelFrame(parent, text=" 文件选择 ", font=('Microsoft YaHei', 11, 'bold'), bg='#FFFFFF', fg='#2D3436', padx=15, pady=10)
-        file_frame.pack(fill=tk.X, pady=(0, 10))
+        file_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
+        file_frame.pack(fill=tk.X, pady=(0, 16))
         
-        input_frame = tk.Frame(file_frame, bg='#FFFFFF')
-        input_frame.pack(fill=tk.X)
+        file_card = tk.Frame(file_frame, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+        file_card.pack(fill=tk.X)
         
-        self.file_entry = tk.Entry(input_frame, font=('Microsoft YaHei', 10), bg='#F8F9FA', relief=tk.SOLID, borderwidth=1)
-        self.file_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        input_frame = tk.Frame(file_card, bg='#FFFFFF')
+        input_frame.pack(fill=tk.X, pady=16, padx=16)
         
-        browse_btn = tk.Button(input_frame, text="浏览", font=('Microsoft YaHei', 10, 'bold'), bg='#0984E3', fg='white', relief=tk.FLAT, padx=20, pady=5, cursor='hand2', command=self.browse_file)
+        self.file_entry = tk.Entry(input_frame, font=('SF Pro Display', 12), bg='#F7F7F7', relief=tk.SOLID, borderwidth=1, disabledbackground='#F7F7F7')
+        self.file_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
+        
+        browse_btn = tk.Button(input_frame, text="浏览文件", font=('SF Pro Display', 11, 'bold'), bg='#1A1A1A', fg='white', relief=tk.FLAT, padx=20, pady=8, cursor='hand2', command=self.browse_file)
         browse_btn.pack(side=tk.RIGHT)
+        browse_btn.bind('<Enter>', lambda e: browse_btn.config(bg='#333333'))
+        browse_btn.bind('<Leave>', lambda e: browse_btn.config(bg='#1A1A1A'))
     
     def create_button_section(self, parent):
-        btn_frame = tk.Frame(parent, bg='#F8F9FA')
-        btn_frame.pack(fill=tk.X, pady=10)
+        btn_frame = tk.Frame(parent, bg='#FFFFFF')
+        btn_frame.pack(fill=tk.X, pady=(0, 16))
         
-        self.run_btn = tk.Button(btn_frame, text="执行加单分配", font=('Microsoft YaHei', 12, 'bold'), bg='#BDC3C7', fg='#7F8C8D', relief=tk.FLAT, padx=30, pady=10, cursor='arrow', state=tk.DISABLED)
-        self.run_btn.pack(side=tk.LEFT, padx=(0, 15))
+        self.run_btn = tk.Button(btn_frame, text="执行加单分配", font=('SF Pro Display', 13, 'bold'), bg='#E5E5E5', fg='#9B9B9B', relief=tk.FLAT, padx=32, pady=12, cursor='arrow', state=tk.DISABLED)
+        self.run_btn.pack(side=tk.LEFT, padx=(0, 16))
         
-        self.save_btn = tk.Button(btn_frame, text="保存结果", font=('Microsoft YaHei', 12, 'bold'), bg='#BDC3C7', fg='#7F8C8D', relief=tk.FLAT, padx=30, pady=10, cursor='arrow', state=tk.DISABLED)
+        self.save_btn = tk.Button(btn_frame, text="保存结果", font=('SF Pro Display', 13, 'bold'), bg='#E5E5E5', fg='#9B9B9B', relief=tk.FLAT, padx=32, pady=12, cursor='arrow', state=tk.DISABLED)
         self.save_btn.pack(side=tk.LEFT)
     
     def create_status_section(self, parent):
-        status_frame = tk.Frame(parent, bg='#F8F9FA')
-        status_frame.pack(fill=tk.X, pady=(0, 10))
+        status_frame = tk.Frame(parent, bg='#FFFFFF')
+        status_frame.pack(fill=tk.X, pady=(0, 16))
         
-        self.status_label = tk.Label(status_frame, text="等待文件选择...", font=('Microsoft YaHei', 10), bg='#F8F9FA', fg='#636E72')
+        self.status_label = tk.Label(status_frame, text="等待文件选择...", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#9B9B9B')
         self.status_label.pack(side=tk.LEFT)
     
     def create_result_section(self, parent):
-        result_frame = tk.LabelFrame(parent, text=" 分配结果预览（前20行） ", font=('Microsoft YaHei', 11, 'bold'), bg='#FFFFFF', fg='#2D3436', padx=10, pady=10)
+        result_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
         result_frame.pack(fill=tk.BOTH, expand=True)
         
-        tree_container = tk.Frame(result_frame, bg='#FFFFFF')
-        tree_container.pack(fill=tk.BOTH, expand=True)
+        result_card = tk.Frame(result_frame, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+        result_card.pack(fill=tk.BOTH, expand=True)
+        
+        header_frame = tk.Frame(result_card, bg='#FFFFFF')
+        header_frame.pack(fill=tk.X, pady=16, padx=16)
+        
+        result_title = tk.Label(header_frame, text="分配结果预览", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A')
+        result_title.pack(side=tk.LEFT)
+        
+        result_subtitle = tk.Label(header_frame, text="(前20行)", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#9B9B9B')
+        result_subtitle.pack(side=tk.LEFT, padx=(8, 0))
+        
+        tree_container = tk.Frame(result_card, bg='#FFFFFF')
+        tree_container.pack(fill=tk.BOTH, expand=True, padx=16, pady=(0, 16))
         
         self.tree = ttk.Treeview(tree_container, show='headings')
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -286,16 +320,20 @@ class AllocationApp:
             self.file_entry.delete(0, tk.END)
             self.file_entry.insert(0, self.file_path)
             self.enable_run_button()
-            self.status_label.config(text="文件已选择，点击执行开始分配", fg='#0984E3')
+            self.status_label.config(text="文件已选择，点击执行开始分配", fg='#4CAF50')
     
     def enable_run_button(self):
-        self.run_btn.config(state=tk.NORMAL, bg='#00B894', fg='white', cursor='hand2', command=self.run_allocation)
+        self.run_btn.config(state=tk.NORMAL, bg='#1A1A1A', fg='white', cursor='hand2', command=self.run_allocation)
+        self.run_btn.bind('<Enter>', lambda e: self.run_btn.config(bg='#333333'))
+        self.run_btn.bind('<Leave>', lambda e: self.run_btn.config(bg='#1A1A1A'))
     
     def enable_save_button(self):
-        self.save_btn.config(state=tk.NORMAL, bg='#6C5CE7', fg='white', cursor='hand2', command=self.save_result)
+        self.save_btn.config(state=tk.NORMAL, bg='#1A1A1A', fg='white', cursor='hand2', command=self.save_result)
+        self.save_btn.bind('<Enter>', lambda e: self.save_btn.config(bg='#333333'))
+        self.save_btn.bind('<Leave>', lambda e: self.save_btn.config(bg='#1A1A1A'))
     
     def run_allocation(self):
-        self.status_label.config(text="正在读取Excel文件...", fg='#F39C12')
+        self.status_label.config(text="正在读取Excel文件...", fg='#FF9800')
         self.root.update()
         
         try:
@@ -304,7 +342,7 @@ class AllocationApp:
             df_store_level = pd.read_excel(self.file_path, sheet_name='卖场等级')
             df_add_order = pd.read_excel(self.file_path, sheet_name='加单数量')
             
-            self.status_label.config(text="正在执行分配逻辑...", fg='#F39C12')
+            self.status_label.config(text="正在执行分配逻辑...", fg='#FF9800')
             self.root.update()
             
             allocation_result, allocation_reasons, stores_sorted, skus = allocate_add_order(
@@ -316,12 +354,12 @@ class AllocationApp:
             self.show_preview()
             
             self.enable_save_button()
-            self.status_label.config(text="分配完成！可以保存结果", fg='#00B894')
+            self.status_label.config(text="分配完成！可以保存结果", fg='#4CAF50')
             
             messagebox.showinfo("成功", "加单分配完成！")
             
         except Exception as e:
-            self.status_label.config(text="执行失败: " + str(e), fg='#E74C3C')
+            self.status_label.config(text="执行失败: " + str(e), fg='#F44336')
             messagebox.showerror("错误", "执行失败:\n" + str(e))
     
     def show_preview(self):
