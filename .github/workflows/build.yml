@@ -127,10 +127,11 @@ jobs:
       with:
         tag_name: v${{ steps.get_version.outputs.version }}
         name: Release v${{ steps.get_version.outputs.version }}
-        body: "Automated release for version ${{ steps.get_version.outputs.version }}"
+        body: "Automated release for version ${{ steps.get_version.outputs.version }}\n\n**平台支持:**\n- Windows: 加单分配系统_v3_Windows.exe\n- Mac ARM: 加单分配系统_v3_Mac-ARM.app\n- Mac Intel: 加单分配系统_v3_Mac-Intel.app\n- Linux: 加单分配系统_v3_Linux"
         files: |
           artifacts/**/*
         overwrite: true
+        fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
