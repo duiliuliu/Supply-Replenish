@@ -60,12 +60,12 @@ jobs:
     - name: Package ARM app
       run: |
         cd dist
-        APP_DIR="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-ARM"
-        if [ -d "$APP_DIR" ]; then
-          zip -r "${APP_DIR}.zip" "$APP_DIR"
-          rm -rf "$APP_DIR"
+        APP_BUNDLE="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-ARM.app"
+        if [ -d "$APP_BUNDLE" ]; then
+          zip -r "${APP_BUNDLE%.app}.zip" "$APP_BUNDLE"
+          rm -rf "$APP_BUNDLE"
         else
-          echo "Directory $APP_DIR not found"
+          echo "App bundle $APP_BUNDLE not found"
           ls -la
           exit 1
         fi
@@ -88,12 +88,12 @@ jobs:
     - name: Package Intel app
       run: |
         cd dist
-        APP_DIR="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-Intel"
-        if [ -d "$APP_DIR" ]; then
-          zip -r "${APP_DIR}.zip" "$APP_DIR"
-          rm -rf "$APP_DIR"
+        APP_BUNDLE="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-Intel.app"
+        if [ -d "$APP_BUNDLE" ]; then
+          zip -r "${APP_BUNDLE%.app}.zip" "$APP_BUNDLE"
+          rm -rf "$APP_BUNDLE"
         else
-          echo "Directory $APP_DIR not found"
+          echo "App bundle $APP_BUNDLE not found"
           ls -la
           exit 1
         fi
