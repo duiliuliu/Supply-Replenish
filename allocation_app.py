@@ -170,8 +170,8 @@ class AllocationApp:
                 level_label.pack(anchor=tk.W)
                 
                 entry = tk.Entry(item_frame, width=8, font=("SF Pro Display", 12), justify="center", 
-                                bg="#F3F4F6", relief=tk.FLAT, borderwidth=0, highlightthickness=1, 
-                                highlightbackground="#E5E7EB", highlightcolor="#D1D5DB")
+                                bg="#E0E7FF", fg="#1F2937", relief=tk.FLAT, borderwidth=0, highlightthickness=1, 
+                                highlightbackground="#C7D2FE", highlightcolor="#93C5FD")
                 entry.pack(ipady=7, pady=(4, 0))
                 
                 try:
