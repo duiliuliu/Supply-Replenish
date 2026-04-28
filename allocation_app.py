@@ -373,15 +373,22 @@ class AllocationApp:
                 messagebox.showwarning("提示", "请确保每个阶段只选择一次！")
                 return
             
-            name_to_stage = {stage[1]: stage for stage in self.stage_list[:3]}
-            new_stage_list = [name_to_stage[name] for name in selected_names]
-            new_stage_list.append(self.stage_list[3])
+            # 构建完整的阶段映射（包括所有可能的阶段名）
+            all_stage_map = {
+                "断码修复": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                "销量匹配": ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                "销尽率优先": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+            }
+            
+            new_stage_list = [all_stage_map[name] for name in selected_names]
+            new_stage_list.append(("remaining_allocation", "剩余分配", "尾量零散SKU随机填充"))
             self.stage_list = new_stage_list
             
             if "allocation_config" not in self.config:
                 self.config["allocation_config"] = {}
             self.config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
             
+            # 更新阶段显示
             for widget in self.stages_container.winfo_children():
                 widget.destroy()
             
@@ -390,6 +397,10 @@ class AllocationApp:
             for i, (stage_id, name, desc) in enumerate(self.stage_list):
                 self._create_stage_item(i, stage_id, name, desc)
             
+            # 更新下拉框显示为新的顺序
+            for i, var in enumerate(self.stage_vars):
+                var.set(self.stage_list[i][1])
+            
             messagebox.showinfo("成功", "阶段顺序已更新！")
         except Exception as e:
             print(f"apply_stage_order error: {e}")
@@ -397,30 +408,37 @@ class AllocationApp:
             messagebox.showerror("错误", f"应用顺序失败:\n{str(e)}")
     
     def reset_stage_order(self):
-        default_stage_list = [
-            ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-            ("sales_match", "销量匹配", "依据历史销速加权分配"),
-            ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-            ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
-        ]
-        self.stage_list = default_stage_list.copy()
-        
-        if "allocation_config" not in self.config:
-            self.config["allocation_config"] = {}
-        self.config["allocation_config"]["stage_priority"] = ["broken_size_fix", "sales_match", "sell_through_priority"]
-        
-        for i, var in enumerate(self.stage_vars):
-            var.set(self.stage_list[i][1])
-        
-        for widget in self.stages_container.winfo_children():
-            widget.destroy()
-        
-        self.stage_frames = []
-        
-        for i, (stage_id, name, desc) in enumerate(self.stage_list):
-            self._create_stage_item(i, stage_id, name, desc)
-        
-        messagebox.showinfo("成功", "已恢复默认阶段顺序！")
+        try:
+            default_stage_list = [
+                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+            ]
+            self.stage_list = default_stage_list.copy()
+            
+            if "allocation_config" not in self.config:
+                self.config["allocation_config"] = {}
+            self.config["allocation_config"]["stage_priority"] = ["broken_size_fix", "sales_match", "sell_through_priority"]
+            
+            # 更新阶段显示
+            for widget in self.stages_container.winfo_children():
+                widget.destroy()
+            
+            self.stage_frames = []
+            
+            for i, (stage_id, name, desc) in enumerate(self.stage_list):
+                self._create_stage_item(i, stage_id, name, desc)
+            
+            # 更新下拉框显示为新的顺序
+            for i, var in enumerate(self.stage_vars):
+                var.set(self.stage_list[i][1])
+            
+            messagebox.showinfo("成功", "已恢复默认阶段顺序！")
+        except Exception as e:
+            print(f"reset_stage_order error: {e}")
+            traceback.print_exc()
+            messagebox.showerror("错误", f"恢复默认失败:\n{str(e)}")
     
     def toggle_logic(self, event=None):
         if self.logic_expanded:
