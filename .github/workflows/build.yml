@@ -50,6 +50,13 @@ jobs:
     - name: Build ARM version
       run: python pyinstaller_build.py
 
+    - name: Package ARM app
+      run: |
+        cd dist
+        zip -r "加单分配系统_v3_Mac-ARM.zip" "加单分配系统_v3_Mac-ARM.app"
+        rm -rf "加单分配系统_v3_Mac-ARM.app"
+      shell: bash
+
     - name: Upload ARM artifact
       uses: actions/upload-artifact@v4
       with:
@@ -63,6 +70,13 @@ jobs:
       run: python pyinstaller_build.py
       env:
         PYINSTALLER_TARGET_ARCH: x86_64
+
+    - name: Package Intel app
+      run: |
+        cd dist
+        zip -r "加单分配系统_v3_Mac-Intel.zip" "加单分配系统_v3_Mac-Intel.app"
+        rm -rf "加单分配系统_v3_Mac-Intel.app"
+      shell: bash
 
     - name: Upload Intel artifact
       uses: actions/upload-artifact@v4
