@@ -53,12 +53,16 @@ def build_app():
         'allocation_app.py',
         '--name', app_name,
         '--windowed',
-        '--onefile',
         '--clean',
         '--noconfirm',
         '--hidden-import=allocation_core',
         '--add-data=allocation_config.json:.',
     ]
+    
+    if platform_name.startswith('Mac'):
+        args.append('--onedir')
+    else:
+        args.append('--onefile')
     
     print('Starting build process...')
     print('Using arguments:', args)
@@ -67,14 +71,23 @@ def build_app():
         PyInstaller.__main__.run(args)
         
         print('\n✅ Build completed!')
-        print(f'Executable located in: {os.path.join(current_dir, "dist")} directory')
+        
+        dist_path = os.path.join(current_dir, 'dist')
         
         if platform_name.startswith('Mac'):
-            print(f'\nMac version: {app_name}.app')
+            app_path = os.path.join(dist_path, f'{app_name}.app')
+            print(f'\nMac version: {app_path}')
+            if os.path.exists(app_path):
+                print(f'App bundle created successfully!')
+            else:
+                print(f'Warning: App bundle not found at {app_path}')
+                print(f'Contents of dist: {os.listdir(dist_path)}')
         elif platform_name == 'Windows':
-            print(f'\nWindows version: {app_name}.exe')
+            exe_path = os.path.join(dist_path, f'{app_name}.exe')
+            print(f'\nWindows version: {exe_path}')
         else:
-            print(f'\nLinux version: {app_name}')
+            bin_path = os.path.join(dist_path, app_name)
+            print(f'\nLinux version: {bin_path}')
         
     except Exception as e:
         print(f'\n❌ Build failed: {e}')
