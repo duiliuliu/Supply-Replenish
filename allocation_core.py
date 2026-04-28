@@ -65,9 +65,12 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
     
     level_order = ['SA', 'A', 'B', 'C', 'D', 'OL']
     stores_sorted = []
+    store_level_map = {}
     for level in level_order:
         level_stores = df_store_level[df_store_level['卖场等级'] == level]['代码'].tolist()
         stores_sorted.extend(level_stores)
+        for store in level_stores:
+            store_level_map[store] = level
     
     skus = []
     for idx, row in df_add_order.iterrows():
@@ -221,9 +224,9 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                             else:
                                 allocation_reasons[store][sku] = f'剩余分配({to_allocate})'
     
-    return allocation_result, allocation_reasons, stores_sorted, skus
+    return allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
 
-def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus):
+def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None):
     data = []
     for store in stores_sorted:
         row = {'卖场': store}
@@ -234,7 +237,8 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
     
     reason_data = []
     for store in stores_sorted:
-        row = {'卖场': store}
+        level = store_level_map.get(store, '未知') if store_level_map else '未知'
+        row = {'卖场': store, '卖场等级': level}
         for sku_info in skus:
             row[sku_info['sku']] = allocation_reasons[store][sku_info['sku']]
         reason_data.append(row)

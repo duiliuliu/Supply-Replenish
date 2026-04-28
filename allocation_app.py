@@ -12,6 +12,7 @@ class AllocationApp:
         self.root.title("加单商品分配系统")
         self.root.geometry("1050x880")
         self.root.configure(bg="#FFFFFF")
+        self.root.minsize(900, 700)
         
         self.config = load_config()
         self.file_path = None
@@ -58,13 +59,19 @@ class AllocationApp:
         self.create_status_section(main_frame)
         self.create_result_section(main_frame)
     
+    def create_card_frame(self, parent):
+        card = tk.Frame(parent, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+        card.config(borderwidth=1, relief=tk.SOLID, bg='#FFFFFF', highlightbackground='#E5E5E5', highlightcolor='#E5E5E5', highlightthickness=1)
+        return card
+    
     def create_config_section(self, parent):
         config_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
         config_frame.pack(fill=tk.X, pady=(0, 16))
         
-        config_card = tk.Frame(config_frame, bg='#F7F7F7', relief=tk.SOLID, borderwidth=1, bd=1)
-        config_card.pack(fill=tk.X, padx=0, pady=0)
-        config_card.config(borderwidth=1, relief=tk.SOLID, bg='#FFFFFF')
+        config_card = self.create_card_frame(config_frame)
+        config_card.pack(fill=tk.X)
+        
+        self.apply_card_style(config_card)
         
         self.config_expanded = False
         
@@ -73,14 +80,13 @@ class AllocationApp:
         header_frame.bind('<Button-1>', self.toggle_config)
         header_frame.config(cursor='hand2')
         
-        self.config_toggle = tk.Label(header_frame, text="▼", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#1A1A1A')
+        self.config_toggle = tk.Label(header_frame, text="▶", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#1A1A1A')
         self.config_toggle.pack(side=tk.RIGHT)
         
         config_title = tk.Label(header_frame, text="参数配置", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A')
         config_title.pack(side=tk.LEFT)
         
         self.config_content = tk.Frame(config_card, bg='#FFFFFF')
-        self.config_content.pack(fill=tk.X, padx=16, pady=(0, 16))
         
         levels = ['SA', 'A', 'B', 'C', 'D', 'OL']
         
@@ -138,15 +144,36 @@ class AllocationApp:
         btn_frame = tk.Frame(self.config_content, bg='#FFFFFF')
         btn_frame.pack(fill=tk.X, pady=(0, 8))
         
-        reset_btn = tk.Button(btn_frame, text="恢复默认值", font=('SF Pro Display', 11), bg='#F7F7F7', fg='#6B6B6B', relief=tk.SOLID, borderwidth=1, padx=20, pady=8, cursor='hand2', command=self.reset_config)
+        reset_btn = self.create_button(btn_frame, "恢复默认值", style='secondary')
         reset_btn.pack(side=tk.RIGHT)
-        reset_btn.bind('<Enter>', lambda e: reset_btn.config(bg='#E5E5E5'))
-        reset_btn.bind('<Leave>', lambda e: reset_btn.config(bg='#F7F7F7'))
+        reset_btn.config(command=self.reset_config)
         
-        save_btn = tk.Button(btn_frame, text="保存配置", font=('SF Pro Display', 11, 'bold'), bg='#1A1A1A', fg='white', relief=tk.FLAT, padx=20, pady=8, cursor='hand2', command=self.save_config)
+        save_btn = self.create_button(btn_frame, "保存配置", style='primary')
         save_btn.pack(side=tk.RIGHT, padx=(12, 0))
-        save_btn.bind('<Enter>', lambda e: save_btn.config(bg='#333333'))
-        save_btn.bind('<Leave>', lambda e: save_btn.config(bg='#1A1A1A'))
+        save_btn.config(command=self.save_config)
+    
+    def apply_card_style(self, frame):
+        try:
+            frame.config(highlightbackground='#E5E5E5', highlightcolor='#E5E5E5', highlightthickness=1)
+        except:
+            pass
+    
+    def create_button(self, parent, text, style='primary'):
+        if style == 'primary':
+            btn = tk.Button(parent, text=text, font=('SF Pro Display', 11, 'bold'), 
+                           bg='#1A1A1A', fg='white', relief=tk.FLAT, padx=20, pady=8, cursor='hand2')
+            btn.bind('<Enter>', lambda e, b=btn: b.config(bg='#333333'))
+            btn.bind('<Leave>', lambda e, b=btn: b.config(bg='#1A1A1A'))
+            btn.bind('<ButtonPress>', lambda e, b=btn: b.config(bg='#444444'))
+            btn.bind('<ButtonRelease>', lambda e, b=btn: b.config(bg='#333333'))
+        else:
+            btn = tk.Button(parent, text=text, font=('SF Pro Display', 11), 
+                           bg='#F7F7F7', fg='#6B6B6B', relief=tk.SOLID, borderwidth=1, padx=20, pady=8, cursor='hand2')
+            btn.bind('<Enter>', lambda e, b=btn: b.config(bg='#E5E5E5'))
+            btn.bind('<Leave>', lambda e, b=btn: b.config(bg='#F7F7F7'))
+            btn.bind('<ButtonPress>', lambda e, b=btn: b.config(bg='#D5D5D5'))
+            btn.bind('<ButtonRelease>', lambda e, b=btn: b.config(bg='#E5E5E5'))
+        return btn
     
     def toggle_config(self, event=None):
         if self.config_expanded:
@@ -166,6 +193,7 @@ class AllocationApp:
             self.weight_entries[level].insert(0, str(default_config['level_weights'].get(level, 1.0)))
             self.safety_entries[level].delete(0, tk.END)
             self.safety_entries[level].insert(0, str(default_config['safety_factors'].get(level, 0.3)))
+        messagebox.showinfo("成功", "已恢复默认配置")
     
     def save_config(self):
         try:
@@ -198,8 +226,10 @@ class AllocationApp:
         logic_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
         logic_frame.pack(fill=tk.X, pady=(0, 16))
         
-        logic_card = tk.Frame(logic_frame, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+        logic_card = self.create_card_frame(logic_frame)
         logic_card.pack(fill=tk.X)
+        
+        self.apply_card_style(logic_card)
         
         self.logic_expanded = True
         
@@ -253,8 +283,10 @@ class AllocationApp:
         file_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
         file_frame.pack(fill=tk.X, pady=(0, 16))
         
-        file_card = tk.Frame(file_frame, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+        file_card = self.create_card_frame(file_frame)
         file_card.pack(fill=tk.X)
+        
+        self.apply_card_style(file_card)
         
         input_frame = tk.Frame(file_card, bg='#FFFFFF')
         input_frame.pack(fill=tk.X, pady=16, padx=16)
@@ -262,19 +294,22 @@ class AllocationApp:
         self.file_entry = tk.Entry(input_frame, font=('SF Pro Display', 12), bg='#F7F7F7', relief=tk.SOLID, borderwidth=1, disabledbackground='#F7F7F7')
         self.file_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
         
-        browse_btn = tk.Button(input_frame, text="浏览文件", font=('SF Pro Display', 11, 'bold'), bg='#1A1A1A', fg='white', relief=tk.FLAT, padx=20, pady=8, cursor='hand2', command=self.browse_file)
+        browse_btn = self.create_button(input_frame, "浏览文件", style='primary')
         browse_btn.pack(side=tk.RIGHT)
-        browse_btn.bind('<Enter>', lambda e: browse_btn.config(bg='#333333'))
-        browse_btn.bind('<Leave>', lambda e: browse_btn.config(bg='#1A1A1A'))
+        browse_btn.config(command=self.browse_file)
     
     def create_button_section(self, parent):
         btn_frame = tk.Frame(parent, bg='#FFFFFF')
         btn_frame.pack(fill=tk.X, pady=(0, 16))
         
-        self.run_btn = tk.Button(btn_frame, text="执行加单分配", font=('SF Pro Display', 13, 'bold'), bg='#E5E5E5', fg='#9B9B9B', relief=tk.FLAT, padx=32, pady=12, cursor='arrow', state=tk.DISABLED)
+        self.run_btn = tk.Button(btn_frame, text="执行加单分配", font=('SF Pro Display', 13, 'bold'), 
+                                bg='#E5E5E5', fg='#9B9B9B', relief=tk.FLAT, padx=32, pady=12, 
+                                cursor='arrow', state=tk.DISABLED)
         self.run_btn.pack(side=tk.LEFT, padx=(0, 16))
         
-        self.save_btn = tk.Button(btn_frame, text="保存结果", font=('SF Pro Display', 13, 'bold'), bg='#E5E5E5', fg='#9B9B9B', relief=tk.FLAT, padx=32, pady=12, cursor='arrow', state=tk.DISABLED)
+        self.save_btn = tk.Button(btn_frame, text="保存结果", font=('SF Pro Display', 13, 'bold'), 
+                                 bg='#E5E5E5', fg='#9B9B9B', relief=tk.FLAT, padx=32, pady=12, 
+                                 cursor='arrow', state=tk.DISABLED)
         self.save_btn.pack(side=tk.LEFT)
     
     def create_status_section(self, parent):
@@ -283,13 +318,18 @@ class AllocationApp:
         
         self.status_label = tk.Label(status_frame, text="等待文件选择...", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#9B9B9B')
         self.status_label.pack(side=tk.LEFT)
+        
+        self.status_icon = tk.Label(status_frame, text="○", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#9B9B9B')
+        self.status_icon.pack(side=tk.LEFT, padx=(8, 0))
     
     def create_result_section(self, parent):
         result_frame = tk.LabelFrame(parent, text="", font=('SF Pro Display', 13, 'bold'), bg='#FFFFFF', fg='#1A1A1A', padx=0, pady=0, bd=0)
         result_frame.pack(fill=tk.BOTH, expand=True)
         
-        result_card = tk.Frame(result_frame, bg='#FFFFFF', relief=tk.SOLID, borderwidth=1)
+        result_card = self.create_card_frame(result_frame)
         result_card.pack(fill=tk.BOTH, expand=True)
+        
+        self.apply_card_style(result_card)
         
         header_frame = tk.Frame(result_card, bg='#FFFFFF')
         header_frame.pack(fill=tk.X, pady=16, padx=16)
@@ -309,6 +349,8 @@ class AllocationApp:
         scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.configure(yscrollcommand=scrollbar.set)
+        
+        self.tree.bind('<Motion>', lambda e: self.root.config(cursor='arrow'))
     
     def browse_file(self):
         self.file_path = filedialog.askopenfilename(
@@ -320,20 +362,35 @@ class AllocationApp:
             self.file_entry.delete(0, tk.END)
             self.file_entry.insert(0, self.file_path)
             self.enable_run_button()
-            self.status_label.config(text="文件已选择，点击执行开始分配", fg='#4CAF50')
+            self.update_status("文件已选择，点击执行开始分配", 'success')
+    
+    def update_status(self, text, status='info'):
+        colors = {
+            'info': ('#6B6B6B', '○'),
+            'success': ('#4CAF50', '✓'),
+            'warning': ('#FF9800', '●'),
+            'error': ('#F44336', '✗')
+        }
+        fg_color, icon = colors.get(status, colors['info'])
+        self.status_label.config(text=text, fg=fg_color)
+        self.status_icon.config(text=icon, fg=fg_color)
     
     def enable_run_button(self):
         self.run_btn.config(state=tk.NORMAL, bg='#1A1A1A', fg='white', cursor='hand2', command=self.run_allocation)
         self.run_btn.bind('<Enter>', lambda e: self.run_btn.config(bg='#333333'))
         self.run_btn.bind('<Leave>', lambda e: self.run_btn.config(bg='#1A1A1A'))
+        self.run_btn.bind('<ButtonPress>', lambda e: self.run_btn.config(bg='#444444'))
+        self.run_btn.bind('<ButtonRelease>', lambda e: self.run_btn.config(bg='#333333'))
     
     def enable_save_button(self):
         self.save_btn.config(state=tk.NORMAL, bg='#1A1A1A', fg='white', cursor='hand2', command=self.save_result)
         self.save_btn.bind('<Enter>', lambda e: self.save_btn.config(bg='#333333'))
         self.save_btn.bind('<Leave>', lambda e: self.save_btn.config(bg='#1A1A1A'))
+        self.save_btn.bind('<ButtonPress>', lambda e: self.save_btn.config(bg='#444444'))
+        self.save_btn.bind('<ButtonRelease>', lambda e: self.save_btn.config(bg='#333333'))
     
     def run_allocation(self):
-        self.status_label.config(text="正在读取Excel文件...", fg='#FF9800')
+        self.update_status("正在读取Excel文件...", 'warning')
         self.root.update()
         
         try:
@@ -342,24 +399,24 @@ class AllocationApp:
             df_store_level = pd.read_excel(self.file_path, sheet_name='卖场等级')
             df_add_order = pd.read_excel(self.file_path, sheet_name='加单数量')
             
-            self.status_label.config(text="正在执行分配逻辑...", fg='#FF9800')
+            self.update_status("正在执行分配逻辑...", 'warning')
             self.root.update()
             
-            allocation_result, allocation_reasons, stores_sorted, skus = allocate_add_order(
+            allocation_result, allocation_reasons, stores_sorted, skus, store_level_map = allocate_add_order(
                 df_inventory, df_sales, df_store_level, df_add_order, self.config
             )
             
-            self.result_df, self.reason_df = generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus)
+            self.result_df, self.reason_df = generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map)
             
             self.show_preview()
             
             self.enable_save_button()
-            self.status_label.config(text="分配完成！可以保存结果", fg='#4CAF50')
+            self.update_status("分配完成！可以保存结果", 'success')
             
             messagebox.showinfo("成功", "加单分配完成！")
             
         except Exception as e:
-            self.status_label.config(text="执行失败: " + str(e), fg='#F44336')
+            self.update_status("执行失败: " + str(e), 'error')
             messagebox.showerror("错误", "执行失败:\n" + str(e))
     
     def show_preview(self):
