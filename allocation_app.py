@@ -152,16 +152,25 @@ class AllocationApp:
         btn_frame.pack(pady=15)
         
         self.run_btn = tk.Button(btn_frame, text="执行加单分配", command=self.run_allocation, 
-                               font=("Arial", 12, "bold"), bg="#1B5E20", fg="white", width=18, 
-                               relief=tk.RAISED, borderwidth=3, disabledforeground="#BDBDBD")
+                               font=("Arial", 12, "bold"), width=18, 
+                               relief=tk.RAISED, borderwidth=3)
         self.run_btn.pack(side=tk.LEFT, padx=10)
-        self.run_btn.config(state=tk.DISABLED, bg="#BDBDBD", fg="#757575")
+        self.set_button_disabled(self.run_btn)
         
         self.save_btn = tk.Button(btn_frame, text="保存结果", command=self.save_result, 
-                                 font=("Arial", 12, "bold"), bg="#0D47A1", fg="white", width=12,
-                                 relief=tk.RAISED, borderwidth=3, disabledforeground="#BDBDBD")
+                                 font=("Arial", 12, "bold"), width=12,
+                                 relief=tk.RAISED, borderwidth=3)
         self.save_btn.pack(side=tk.LEFT, padx=10)
-        self.save_btn.config(state=tk.DISABLED, bg="#BDBDBD", fg="#757575")
+        self.set_button_disabled(self.save_btn)
+    
+    def set_button_disabled(self, btn):
+        btn.config(state=tk.DISABLED, bg="#E0E0E0", fg="#616161", cursor="arrow")
+    
+    def set_run_button_enabled(self):
+        self.run_btn.config(state=tk.NORMAL, bg="#1B5E20", fg="white", cursor="hand2")
+    
+    def set_save_button_enabled(self):
+        self.save_btn.config(state=tk.NORMAL, bg="#0D47A1", fg="white", cursor="hand2")
         
         # 进度区
         self.progress_frame = tk.Frame(self.root)
@@ -197,7 +206,7 @@ class AllocationApp:
         if self.file_path:
             self.file_entry.delete(0, tk.END)
             self.file_entry.insert(0, self.file_path)
-            self.run_btn.config(state=tk.NORMAL, bg="#1B5E20", fg="white")
+            self.set_run_button_enabled()
             self.status_label.config(text="文件已选择，点击执行开始分配", fg="#1976D2")
     
     def run_allocation(self):
@@ -223,7 +232,7 @@ class AllocationApp:
             
             self.show_preview()
             
-            self.save_btn.config(state=tk.NORMAL, bg="#0D47A1", fg="white")
+            self.set_save_button_enabled()
             self.status_label.config(text="分配完成！可以保存结果", fg="#2E7D32")
             
             messagebox.showinfo("成功", "加单分配完成！")
