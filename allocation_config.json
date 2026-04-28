@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "updated_at": "2026-04-28",
   "allocation_config": {
     "coverage_days": {
@@ -25,6 +25,14 @@
       "C": 0.25,
       "D": 0.2,
       "OL": 0.2
+    },
+    "min_target_inventory": {
+      "SA": 0,
+      "A": 0,
+      "B": 0,
+      "C": 0,
+      "D": 0,
+      "OL": 0
     },
     "max_remaining_per_store": 10
   }
