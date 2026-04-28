@@ -5,7 +5,7 @@ import os
 from collections import defaultdict
 
 DEFAULT_CONFIG = {
-    "version": "2.0",
+    "version": "2.1",
     "allocation_config": {
         "coverage_days": {
             "SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14
@@ -15,6 +15,9 @@ DEFAULT_CONFIG = {
         },
         "safety_factors": {
             "SA": 0.5, "A": 0.4, "B": 0.3, "C": 0.25, "D": 0.2, "OL": 0.2
+        },
+        "min_target_inventory": {
+            "SA": 0, "A": 0, "B": 0, "C": 0, "D": 0, "OL": 0
         },
         "max_remaining_per_store": 10
     }
@@ -138,6 +141,8 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                         allocation_reasons[store][sku] = f'断码修复({to_allocate})'
         
         # 阶段2: 销量匹配（基于供应链公式）
+        min_target_inventory = alloc_config.get('min_target_inventory', {})
+        
         for store in stores_sorted:
             if remaining_qty <= 0:
                 break
@@ -150,6 +155,9 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
             safety_factor = safety_factors.get(level, 0.3)
             safety_stock = daily_demand * safety_factor * coverage
             target_inv = int(daily_demand * coverage + safety_stock)
+            
+            min_target = min_target_inventory.get(level, 0)
+            target_inv = max(target_inv, min_target)
             
             current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
             

@@ -49,7 +49,7 @@ class AllocationApp:
         title_label = ttk.Label(title_frame, text="加单商品分配系统", style='Title.TLabel')
         title_label.pack(side=tk.LEFT)
         
-        version_label = tk.Label(title_frame, text="v2.0", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#9B9B9B')
+        version_label = tk.Label(title_frame, text="v2.1", font=('SF Pro Display', 12), bg='#FFFFFF', fg='#9B9B9B')
         version_label.pack(side=tk.LEFT, padx=(12, 0), pady=(8, 0))
         
         self.create_config_section(main_frame)
@@ -141,6 +141,23 @@ class AllocationApp:
             entry.insert(0, str(self.config.get('allocation_config', {}).get('safety_factors', {}).get(level, 0.3)))
             self.safety_entries[level] = entry
         
+        min_target_frame = tk.Frame(self.config_content, bg='#FFFFFF')
+        min_target_frame.pack(fill=tk.X, pady=(0, 16))
+        
+        tk.Label(min_target_frame, text="最小目标库存", font=('SF Pro Display', 12, 'bold'), bg='#FFFFFF', fg='#1A1A1A').pack(side=tk.LEFT, anchor=tk.N)
+        
+        self.min_target_entries = {}
+        for i, level in enumerate(levels):
+            frame = tk.Frame(min_target_frame, bg='#FFFFFF')
+            frame.pack(side=tk.LEFT, padx=(20 if i == 0 else 16, 0))
+            
+            tk.Label(frame, text=level, font=('SF Pro Display', 11), bg='#FFFFFF', fg='#6B6B6B').pack(side=tk.TOP, pady=(0, 4))
+            
+            entry = tk.Entry(frame, width=8, font=('SF Pro Display', 12), justify='center', bg='#F7F7F7', relief=tk.SOLID, borderwidth=1)
+            entry.pack(side=tk.TOP)
+            entry.insert(0, str(self.config.get('allocation_config', {}).get('min_target_inventory', {}).get(level, 0)))
+            self.min_target_entries[level] = entry
+        
         btn_frame = tk.Frame(self.config_content, bg='#FFFFFF')
         btn_frame.pack(fill=tk.X, pady=(0, 8))
         
@@ -193,17 +210,20 @@ class AllocationApp:
             self.weight_entries[level].insert(0, str(default_config['level_weights'].get(level, 1.0)))
             self.safety_entries[level].delete(0, tk.END)
             self.safety_entries[level].insert(0, str(default_config['safety_factors'].get(level, 0.3)))
+            self.min_target_entries[level].delete(0, tk.END)
+            self.min_target_entries[level].insert(0, str(default_config['min_target_inventory'].get(level, 0)))
         messagebox.showinfo("成功", "已恢复默认配置")
     
     def save_config(self):
         try:
             config = {
-                "version": "2.0",
+                "version": "2.1",
                 "updated_at": "2026-04-28",
                 "allocation_config": {
                     "coverage_days": {},
                     "level_weights": {},
                     "safety_factors": {},
+                    "min_target_inventory": {},
                     "max_remaining_per_store": 10
                 }
             }
@@ -212,6 +232,7 @@ class AllocationApp:
                 config['allocation_config']['coverage_days'][level] = int(self.coverage_entries[level].get())
                 config['allocation_config']['level_weights'][level] = float(self.weight_entries[level].get())
                 config['allocation_config']['safety_factors'][level] = float(self.safety_entries[level].get())
+                config['allocation_config']['min_target_inventory'][level] = int(self.min_target_entries[level].get())
             
             config_path = os.path.join(os.path.dirname(__file__), 'allocation_config.json')
             with open(config_path, 'w', encoding='utf-8') as f:
@@ -248,10 +269,10 @@ class AllocationApp:
         self.logic_content.pack(fill=tk.X, padx=16, pady=(0, 16))
         
         stages = [
-            ("阶段1", "断码修复", "确保卖场达到最低库存要求"),
-            ("阶段2", "销量匹配", "根据销量和覆盖周期计算目标库存"),
-            ("阶段3", "销尽率优先", "按综合得分(销尽率×等级权重)分配"),
-            ("阶段4", "剩余分配", "按等级优先级分配剩余库存")
+            ("阶段1", "断码修复", "SA/A级：核心尺码(160,165)≥2件，非核心≥1件；其他等级：核心尺码≥1件"),
+            ("阶段2", "销量匹配", "目标库存=平均日需求×覆盖周期+安全库存，且不低于最小目标库存"),
+            ("阶段3", "销尽率优先", "综合得分=销尽率×等级权重，所有等级参与，按得分降序分配"),
+            ("阶段4", "剩余分配", "按等级优先级SA→A→B→C→D→OL分配，单卖场上限10件")
         ]
         
         for idx, (stage_id, name, desc) in enumerate(stages):
