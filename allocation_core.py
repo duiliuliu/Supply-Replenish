@@ -1,11 +1,11 @@
-# 加单分配核心逻辑 v2.0
+# 加单分配核心逻辑 v2.3
 import pandas as pd
 import json
 import os
 from collections import defaultdict
 
 DEFAULT_CONFIG = {
-    "version": "2.1",
+    "version": "2.3",
     "allocation_config": {
         "coverage_days": {
             "SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14
@@ -19,21 +19,43 @@ DEFAULT_CONFIG = {
         "min_target_inventory": {
             "SA": 0, "A": 0, "B": 0, "C": 0, "D": 0, "OL": 0
         },
+        "stage_priority": [
+            "broken_size_fix",
+            "sales_match",
+            "sell_through_priority"
+        ],
         "max_remaining_per_store": 10
     }
 }
 
 def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), 'allocation_config.json')
-    if os.path.exists(config_path):
-        with open(config_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    import sys
+    
+    config_paths = []
+    
+    if getattr(sys, 'frozen', False):
+        config_paths.append(os.path.join(sys._MEIPASS, 'allocation_config.json'))
+        config_paths.append(os.path.join(os.path.dirname(sys.executable), 'allocation_config.json'))
+    
+    config_paths.append(os.path.join(os.path.dirname(__file__), 'allocation_config.json'))
+    
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f'Warning: Error reading config from {config_path}: {e}')
+    
     return DEFAULT_CONFIG
 
 def get_30day_sales(df_sales, sku, store_code):
-    df_filtered = df_sales[(df_sales['条码.条码'] == sku) & (df_sales['店仓.卖场代码'] == store_code)].copy()
-    df_filtered['数量'] = df_filtered['数量'].apply(lambda x: max(0, x))
-    return df_filtered['数量'].sum()
+    try:
+        df_filtered = df_sales[(df_sales['条码.条码'] == sku) & (df_sales['店仓.卖场代码'] == store_code)].copy()
+        df_filtered['数量'] = df_filtered['数量'].apply(lambda x: max(0, x))
+        return df_filtered['数量'].sum()
+    except Exception as e:
+        return 0
 
 def extract_size(sku):
     try:
@@ -45,72 +67,26 @@ def is_core_size(size):
     return size in [160, 165]
 
 def get_store_level(df_store_level, store_code):
-    filtered = df_store_level[df_store_level['代码'] == store_code]
-    if len(filtered) > 0:
-        return filtered.iloc[0]['卖场等级']
+    try:
+        filtered = df_store_level[df_store_level['代码'] == store_code]
+        if len(filtered) > 0:
+            return filtered.iloc[0]['卖场等级']
+    except Exception as e:
+        print(f'Warning: Error getting store level for {store_code}: {e}')
     return 'C'
 
 def get_inventory(df_inventory, store_code, sku):
-    filtered = df_inventory[(df_inventory['卖场代码'] == store_code) & (df_inventory['条码'] == sku)]
-    if len(filtered) > 0:
-        return max(0, int(filtered.iloc[0]['库存数量']))
+    try:
+        filtered = df_inventory[(df_inventory['卖场代码'] == store_code) & (df_inventory['条码'] == sku)]
+        if len(filtered) > 0:
+            return max(0, int(filtered.iloc[0]['库存数量']))
+    except Exception as e:
+        print(f'Warning: Error getting inventory for {store_code} - {sku}: {e}')
     return 0
 
-def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, config=None):
-    if config is None:
-        config = load_config()
-    
-    alloc_config = config.get('allocation_config', DEFAULT_CONFIG['allocation_config'])
-    coverage_days = alloc_config.get('coverage_days', DEFAULT_CONFIG['allocation_config']['coverage_days'])
-    level_weights = alloc_config.get('level_weights', DEFAULT_CONFIG['allocation_config']['level_weights'])
-    safety_factors = alloc_config.get('safety_factors', DEFAULT_CONFIG['allocation_config']['safety_factors'])
-    max_remaining_per_store = alloc_config.get('max_remaining_per_store', 10)
-    
-    level_order = ['SA', 'A', 'B', 'C', 'D', 'OL']
-    stores_sorted = []
-    store_level_map = {}
-    for level in level_order:
-        level_stores = df_store_level[df_store_level['卖场等级'] == level]['代码'].tolist()
-        stores_sorted.extend(level_stores)
-        for store in level_stores:
-            store_level_map[store] = level
-    
-    skus = []
-    for idx, row in df_add_order.iterrows():
-        skus.append({
-            'sku': row['SKU'],
-            'skc': row['SKC'],
-            'required_qty': int(row['需分配数量'])
-        })
-    
-    allocation_result = defaultdict(lambda: defaultdict(int))
-    allocation_reasons = defaultdict(lambda: defaultdict(str))
-    
-    for sku_info in skus:
-        sku = sku_info['sku']
-        remaining_qty = sku_info['required_qty']
-        core_sizes = [160, 165]
-        
-        store_data = {}
-        for store in stores_sorted:
-            inv = get_inventory(df_inventory, store, sku)
-            sales_30d = get_30day_sales(df_sales, store, sku)
-            level = get_store_level(df_store_level, store)
-            
-            total = sales_30d + inv
-            if total > 0:
-                sell_through = sales_30d / total
-            else:
-                sell_through = 0
-            
-            store_data[store] = {
-                'inventory': inv,
-                'sales_30d': sales_30d,
-                'level': level,
-                'sell_through': sell_through
-            }
-        
-        # 阶段1: 断码修复
+def stage_broken_size_fix(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty):
+    """阶段1: 断码修复"""
+    try:
         for store in stores_sorted:
             if remaining_qty <= 0:
                 break
@@ -139,10 +115,15 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                         allocation_reasons[store][sku] += f',断码修复({to_allocate})'
                     else:
                         allocation_reasons[store][sku] = f'断码修复({to_allocate})'
-        
-        # 阶段2: 销量匹配（基于供应链公式）
-        min_target_inventory = alloc_config.get('min_target_inventory', {})
-        
+        return remaining_qty
+    except Exception as e:
+        print(f'Warning: Error in broken size fix stage: {e}')
+        return remaining_qty
+
+def stage_sales_match(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, 
+                     coverage_days, safety_factors, min_target_inventory):
+    """阶段2: 销量匹配（基于供应链公式）"""
+    try:
         for store in stores_sorted:
             if remaining_qty <= 0:
                 break
@@ -172,8 +153,14 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                         allocation_reasons[store][sku] += f',销量匹配({to_allocate})'
                     else:
                         allocation_reasons[store][sku] = f'销量匹配({to_allocate})'
-        
-        # 阶段3: 销尽率优先分配（所有等级参与，按权重排序）
+        return remaining_qty
+    except Exception as e:
+        print(f'Warning: Error in sales match stage: {e}')
+        return remaining_qty
+
+def stage_sell_through_priority(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, level_weights):
+    """阶段3: 销尽率优先分配（所有等级参与，按权重排序）"""
+    try:
         all_stores_with_score = []
         for store in stores_sorted:
             level = store_data[store]['level']
@@ -205,8 +192,15 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                         allocation_reasons[store][sku] += f',销尽率优先({to_allocate})'
                     else:
                         allocation_reasons[store][sku] = f'销尽率优先({to_allocate})'
-        
-        # 阶段4: 剩余分配（按等级优先级）
+        return remaining_qty
+    except Exception as e:
+        print(f'Warning: Error in sell through priority stage: {e}')
+        return remaining_qty
+
+def stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, 
+                               level_order, max_remaining_per_store, store_level_map):
+    """阶段4: 剩余分配（按等级优先级）"""
+    try:
         for level in level_order:
             if remaining_qty <= 0:
                 break
@@ -231,25 +225,115 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                                 allocation_reasons[store][sku] += f',剩余分配({to_allocate})'
                             else:
                                 allocation_reasons[store][sku] = f'剩余分配({to_allocate})'
-    
-    return allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
+        return remaining_qty
+    except Exception as e:
+        print(f'Warning: Error in remaining allocation stage: {e}')
+        return remaining_qty
+
+def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, config=None):
+    try:
+        if config is None:
+            config = load_config()
+        
+        alloc_config = config.get('allocation_config', DEFAULT_CONFIG['allocation_config'])
+        coverage_days = alloc_config.get('coverage_days', DEFAULT_CONFIG['allocation_config']['coverage_days'])
+        level_weights = alloc_config.get('level_weights', DEFAULT_CONFIG['allocation_config']['level_weights'])
+        safety_factors = alloc_config.get('safety_factors', DEFAULT_CONFIG['allocation_config']['safety_factors'])
+        min_target_inventory = alloc_config.get('min_target_inventory', DEFAULT_CONFIG['allocation_config']['min_target_inventory'])
+        stage_priority = alloc_config.get('stage_priority', DEFAULT_CONFIG['allocation_config']['stage_priority'])
+        max_remaining_per_store = alloc_config.get('max_remaining_per_store', 10)
+        
+        level_order = ['SA', 'A', 'B', 'C', 'D', 'OL']
+        stores_sorted = []
+        store_level_map = {}
+        for level in level_order:
+            level_stores = df_store_level[df_store_level['卖场等级'] == level]['代码'].tolist()
+            stores_sorted.extend(level_stores)
+            for store in level_stores:
+                store_level_map[store] = level
+        
+        skus = []
+        for idx, row in df_add_order.iterrows():
+            skus.append({
+                'sku': row['SKU'],
+                'skc': row['SKC'],
+                'required_qty': int(row['需分配数量'])
+            })
+        
+        allocation_result = defaultdict(lambda: defaultdict(int))
+        allocation_reasons = defaultdict(lambda: defaultdict(str))
+        
+        stage_map = {
+            'broken_size_fix': lambda *args: stage_broken_size_fix(*args[:6]),
+            'sales_match': lambda *args: stage_sales_match(*args[:6], coverage_days, safety_factors, min_target_inventory),
+            'sell_through_priority': lambda *args: stage_sell_through_priority(*args[:6], level_weights)
+        }
+        
+        for sku_info in skus:
+            sku = sku_info['sku']
+            remaining_qty = sku_info['required_qty']
+            core_sizes = [160, 165]
+            
+            store_data = {}
+            for store in stores_sorted:
+                inv = get_inventory(df_inventory, store, sku)
+                sales_30d = get_30day_sales(df_sales, store, sku)
+                level = get_store_level(df_store_level, store)
+                
+                total = sales_30d + inv
+                if total > 0:
+                    sell_through = sales_30d / total
+                else:
+                    sell_through = 0
+                
+                store_data[store] = {
+                    'inventory': inv,
+                    'sales_30d': sales_30d,
+                    'level': level,
+                    'sell_through': sell_through
+                }
+            
+            for stage_name in stage_priority:
+                if remaining_qty <= 0:
+                    break
+                if stage_name in stage_map:
+                    remaining_qty = stage_map[stage_name](stores_sorted, store_data, sku, allocation_result, 
+                                                           allocation_reasons, remaining_qty)
+            
+            if remaining_qty > 0:
+                remaining_qty = stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result, 
+                                                          allocation_reasons, remaining_qty, level_order, 
+                                                          max_remaining_per_store, store_level_map)
+        
+        return allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
+    except Exception as e:
+        print(f'Error in allocate_add_order: {e}')
+        import traceback
+        traceback.print_exc()
+        return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
 
 def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None):
-    data = []
-    for store in stores_sorted:
-        row = {'卖场': store}
-        for sku_info in skus:
-            row[sku_info['sku']] = allocation_result[store][sku_info['sku']]
-        data.append(row)
-    df_quantity = pd.DataFrame(data)
-    
-    reason_data = []
-    for store in stores_sorted:
-        level = store_level_map.get(store, '未知') if store_level_map else '未知'
-        row = {'卖场': store, '卖场等级': level}
-        for sku_info in skus:
-            row[sku_info['sku']] = allocation_reasons[store][sku_info['sku']]
-        reason_data.append(row)
-    df_reason = pd.DataFrame(reason_data)
-    
-    return df_quantity, df_reason
+    try:
+        data = []
+        for store in stores_sorted:
+            row = {'卖场': store}
+            for sku_info in skus:
+                row[sku_info['sku']] = allocation_result[store][sku_info['sku']]
+            data.append(row)
+        df_quantity = pd.DataFrame(data)
+        
+        reason_data = []
+        for store in stores_sorted:
+            level = store_level_map.get(store, '未知') if store_level_map else '未知'
+            row = {'卖场': store, '卖场等级': level}
+            for sku_info in skus:
+                row[sku_info['sku']] = allocation_reasons[store][sku_info['sku']]
+            reason_data.append(row)
+        df_reason = pd.DataFrame(reason_data)
+        
+        return df_quantity, df_reason
+    except Exception as e:
+        print(f'Error in generate_result_dataframe: {e}')
+        import traceback
+        traceback.print_exc()
+        return pd.DataFrame(), pd.DataFrame()
