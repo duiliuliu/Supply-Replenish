@@ -1,5 +1,5 @@
 {
-  "version": "2.1",
+  "version": "2.2",
   "updated_at": "2026-04-28",
   "allocation_config": {
     "coverage_days": {
@@ -34,6 +34,11 @@
       "D": 0,
       "OL": 0
     },
+    "stage_priority": [
+      "broken_size_fix",
+      "sales_match",
+      "sell_through_priority"
+    ],
     "max_remaining_per_store": 10
   }
 }

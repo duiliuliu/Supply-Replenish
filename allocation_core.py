@@ -1,11 +1,11 @@
-# 加单分配核心逻辑 v2.0
+# 加单分配核心逻辑 v2.2
 import pandas as pd
 import json
 import os
 from collections import defaultdict
 
 DEFAULT_CONFIG = {
-    "version": "2.1",
+    "version": "2.2",
     "allocation_config": {
         "coverage_days": {
             "SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14
@@ -19,6 +19,11 @@ DEFAULT_CONFIG = {
         "min_target_inventory": {
             "SA": 0, "A": 0, "B": 0, "C": 0, "D": 0, "OL": 0
         },
+        "stage_priority": [
+            "broken_size_fix",
+            "sales_match",
+            "sell_through_priority"
+        ],
         "max_remaining_per_store": 10
     }
 }
@@ -56,6 +61,136 @@ def get_inventory(df_inventory, store_code, sku):
         return max(0, int(filtered.iloc[0]['库存数量']))
     return 0
 
+def stage_broken_size_fix(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty):
+    """阶段1: 断码修复"""
+    for store in stores_sorted:
+        if remaining_qty <= 0:
+            break
+        current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
+        size = extract_size(sku)
+        level = store_data[store]['level']
+        
+        target = 0
+        if level in ['SA', 'A']:
+            if is_core_size(size):
+                target = 2
+            else:
+                target = 1
+        else:
+            if is_core_size(size):
+                target = 1
+        
+        if current_inv < target:
+            to_allocate = target - current_inv
+            to_allocate = min(to_allocate, remaining_qty)
+            
+            if to_allocate > 0:
+                allocation_result[store][sku] += to_allocate
+                remaining_qty -= to_allocate
+                if allocation_reasons[store][sku]:
+                    allocation_reasons[store][sku] += f',断码修复({to_allocate})'
+                else:
+                    allocation_reasons[store][sku] = f'断码修复({to_allocate})'
+    return remaining_qty
+
+def stage_sales_match(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, 
+                     coverage_days, safety_factors, min_target_inventory):
+    """阶段2: 销量匹配（基于供应链公式）"""
+    for store in stores_sorted:
+        if remaining_qty <= 0:
+            break
+        
+        level = store_data[store]['level']
+        sales_30d = store_data[store]['sales_30d']
+        daily_demand = sales_30d / 30
+        
+        coverage = coverage_days.get(level, 14)
+        safety_factor = safety_factors.get(level, 0.3)
+        safety_stock = daily_demand * safety_factor * coverage
+        target_inv = int(daily_demand * coverage + safety_stock)
+        
+        min_target = min_target_inventory.get(level, 0)
+        target_inv = max(target_inv, min_target)
+        
+        current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
+        
+        if current_inv < target_inv:
+            to_allocate = target_inv - current_inv
+            to_allocate = min(to_allocate, remaining_qty)
+            
+            if to_allocate > 0:
+                allocation_result[store][sku] += to_allocate
+                remaining_qty -= to_allocate
+                if allocation_reasons[store][sku]:
+                    allocation_reasons[store][sku] += f',销量匹配({to_allocate})'
+                else:
+                    allocation_reasons[store][sku] = f'销量匹配({to_allocate})'
+    return remaining_qty
+
+def stage_sell_through_priority(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, level_weights):
+    """阶段3: 销尽率优先分配（所有等级参与，按权重排序）"""
+    all_stores_with_score = []
+    for store in stores_sorted:
+        level = store_data[store]['level']
+        sell_through = store_data[store]['sell_through']
+        weight = level_weights.get(level, 1.0)
+        weighted_score = sell_through * weight
+        all_stores_with_score.append((store, weighted_score, level))
+    
+    all_stores_with_score.sort(key=lambda x: x[1], reverse=True)
+    
+    for store, score, level in all_stores_with_score:
+        if remaining_qty <= 0:
+            break
+        
+        sales_30d = store_data[store]['sales_30d']
+        current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
+        weight = level_weights.get(level, 1.0)
+        
+        max_for_store = max(int(sales_30d * weight), 2)
+        
+        if current_inv < max_for_store:
+            to_allocate = max_for_store - current_inv
+            to_allocate = min(to_allocate, remaining_qty)
+            
+            if to_allocate > 0:
+                allocation_result[store][sku] += to_allocate
+                remaining_qty -= to_allocate
+                if allocation_reasons[store][sku]:
+                    allocation_reasons[store][sku] += f',销尽率优先({to_allocate})'
+                else:
+                    allocation_reasons[store][sku] = f'销尽率优先({to_allocate})'
+    return remaining_qty
+
+def stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, 
+                               level_order, max_remaining_per_store, store_level_map):
+    """阶段4: 剩余分配（按等级优先级）"""
+    for level in level_order:
+        if remaining_qty <= 0:
+            break
+        
+        level_stores = [s for s in stores_sorted if store_data[s]['level'] == level]
+        
+        if level_stores:
+            for store in level_stores:
+                if remaining_qty <= 0:
+                    break
+                
+                current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
+                
+                if current_inv < max_remaining_per_store:
+                    to_allocate = max_remaining_per_store - current_inv
+                    to_allocate = min(to_allocate, remaining_qty)
+                    
+                    if to_allocate > 0:
+                        allocation_result[store][sku] += to_allocate
+                        remaining_qty -= to_allocate
+                        if allocation_reasons[store][sku]:
+                            allocation_reasons[store][sku] += f',剩余分配({to_allocate})'
+                        else:
+                            allocation_reasons[store][sku] = f'剩余分配({to_allocate})'
+    return remaining_qty
+
 def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, config=None):
     if config is None:
         config = load_config()
@@ -64,6 +199,8 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
     coverage_days = alloc_config.get('coverage_days', DEFAULT_CONFIG['allocation_config']['coverage_days'])
     level_weights = alloc_config.get('level_weights', DEFAULT_CONFIG['allocation_config']['level_weights'])
     safety_factors = alloc_config.get('safety_factors', DEFAULT_CONFIG['allocation_config']['safety_factors'])
+    min_target_inventory = alloc_config.get('min_target_inventory', DEFAULT_CONFIG['allocation_config']['min_target_inventory'])
+    stage_priority = alloc_config.get('stage_priority', DEFAULT_CONFIG['allocation_config']['stage_priority'])
     max_remaining_per_store = alloc_config.get('max_remaining_per_store', 10)
     
     level_order = ['SA', 'A', 'B', 'C', 'D', 'OL']
@@ -85,6 +222,12 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
     
     allocation_result = defaultdict(lambda: defaultdict(int))
     allocation_reasons = defaultdict(lambda: defaultdict(str))
+    
+    stage_map = {
+        'broken_size_fix': lambda *args: stage_broken_size_fix(*args[:6]),
+        'sales_match': lambda *args: stage_sales_match(*args[:6], coverage_days, safety_factors, min_target_inventory),
+        'sell_through_priority': lambda *args: stage_sell_through_priority(*args[:6], level_weights)
+    }
     
     for sku_info in skus:
         sku = sku_info['sku']
@@ -110,127 +253,17 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                 'sell_through': sell_through
             }
         
-        # 阶段1: 断码修复
-        for store in stores_sorted:
+        for stage_name in stage_priority:
             if remaining_qty <= 0:
                 break
-            current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
-            size = extract_size(sku)
-            level = store_data[store]['level']
-            
-            target = 0
-            if level in ['SA', 'A']:
-                if is_core_size(size):
-                    target = 2
-                else:
-                    target = 1
-            else:
-                if is_core_size(size):
-                    target = 1
-            
-            if current_inv < target:
-                to_allocate = target - current_inv
-                to_allocate = min(to_allocate, remaining_qty)
-                
-                if to_allocate > 0:
-                    allocation_result[store][sku] += to_allocate
-                    remaining_qty -= to_allocate
-                    if allocation_reasons[store][sku]:
-                        allocation_reasons[store][sku] += f',断码修复({to_allocate})'
-                    else:
-                        allocation_reasons[store][sku] = f'断码修复({to_allocate})'
+            if stage_name in stage_map:
+                remaining_qty = stage_map[stage_name](stores_sorted, store_data, sku, allocation_result, 
+                                                       allocation_reasons, remaining_qty)
         
-        # 阶段2: 销量匹配（基于供应链公式）
-        min_target_inventory = alloc_config.get('min_target_inventory', {})
-        
-        for store in stores_sorted:
-            if remaining_qty <= 0:
-                break
-            
-            level = store_data[store]['level']
-            sales_30d = store_data[store]['sales_30d']
-            daily_demand = sales_30d / 30
-            
-            coverage = coverage_days.get(level, 14)
-            safety_factor = safety_factors.get(level, 0.3)
-            safety_stock = daily_demand * safety_factor * coverage
-            target_inv = int(daily_demand * coverage + safety_stock)
-            
-            min_target = min_target_inventory.get(level, 0)
-            target_inv = max(target_inv, min_target)
-            
-            current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
-            
-            if current_inv < target_inv:
-                to_allocate = target_inv - current_inv
-                to_allocate = min(to_allocate, remaining_qty)
-                
-                if to_allocate > 0:
-                    allocation_result[store][sku] += to_allocate
-                    remaining_qty -= to_allocate
-                    if allocation_reasons[store][sku]:
-                        allocation_reasons[store][sku] += f',销量匹配({to_allocate})'
-                    else:
-                        allocation_reasons[store][sku] = f'销量匹配({to_allocate})'
-        
-        # 阶段3: 销尽率优先分配（所有等级参与，按权重排序）
-        all_stores_with_score = []
-        for store in stores_sorted:
-            level = store_data[store]['level']
-            sell_through = store_data[store]['sell_through']
-            weight = level_weights.get(level, 1.0)
-            weighted_score = sell_through * weight
-            all_stores_with_score.append((store, weighted_score, level))
-        
-        all_stores_with_score.sort(key=lambda x: x[1], reverse=True)
-        
-        for store, score, level in all_stores_with_score:
-            if remaining_qty <= 0:
-                break
-            
-            sales_30d = store_data[store]['sales_30d']
-            current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
-            weight = level_weights.get(level, 1.0)
-            
-            max_for_store = max(int(sales_30d * weight), 2)
-            
-            if current_inv < max_for_store:
-                to_allocate = max_for_store - current_inv
-                to_allocate = min(to_allocate, remaining_qty)
-                
-                if to_allocate > 0:
-                    allocation_result[store][sku] += to_allocate
-                    remaining_qty -= to_allocate
-                    if allocation_reasons[store][sku]:
-                        allocation_reasons[store][sku] += f',销尽率优先({to_allocate})'
-                    else:
-                        allocation_reasons[store][sku] = f'销尽率优先({to_allocate})'
-        
-        # 阶段4: 剩余分配（按等级优先级）
-        for level in level_order:
-            if remaining_qty <= 0:
-                break
-            
-            level_stores = [s for s in stores_sorted if store_data[s]['level'] == level]
-            
-            if level_stores:
-                for store in level_stores:
-                    if remaining_qty <= 0:
-                        break
-                    
-                    current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
-                    
-                    if current_inv < max_remaining_per_store:
-                        to_allocate = max_remaining_per_store - current_inv
-                        to_allocate = min(to_allocate, remaining_qty)
-                        
-                        if to_allocate > 0:
-                            allocation_result[store][sku] += to_allocate
-                            remaining_qty -= to_allocate
-                            if allocation_reasons[store][sku]:
-                                allocation_reasons[store][sku] += f',剩余分配({to_allocate})'
-                            else:
-                                allocation_reasons[store][sku] = f'剩余分配({to_allocate})'
+        if remaining_qty > 0:
+            remaining_qty = stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result, 
+                                                      allocation_reasons, remaining_qty, level_order, 
+                                                      max_remaining_per_store, store_level_map)
     
     return allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
 
