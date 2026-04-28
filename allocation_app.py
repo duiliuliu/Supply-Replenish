@@ -22,10 +22,27 @@ class AllocationApp:
         title_label = tk.Label(self.root, text="加单商品分配系统", font=("Arial", 18, "bold"))
         title_label.pack(pady=10)
         
-        # 分配逻辑说明区 - 卡片式设计
-        logic_section = tk.LabelFrame(self.root, text="📊 分配逻辑说明", font=("Arial", 12, "bold"), 
-                                      bg="#FAFAFA", fg="#333", padx=10, pady=10)
-        logic_section.pack(pady=10, padx=20, fill=tk.X)
+        # 分配逻辑说明区 - 可折叠设计
+        logic_collapsible_frame = tk.Frame(self.root)
+        logic_collapsible_frame.pack(pady=10, padx=20, fill=tk.X)
+        
+        # 折叠状态跟踪
+        self.logic_expanded = False
+        
+        # 标题栏（可点击）
+        logic_header = tk.Frame(logic_collapsible_frame, bg="#1565C0", relief=tk.RAISED, borderwidth=2)
+        logic_header.pack(fill=tk.X)
+        
+        self.logic_toggle_label = tk.Label(logic_header, text="▶", font=("Arial", 16, "bold"), 
+                                          bg="#1565C0", fg="white", cursor="hand2")
+        self.logic_toggle_label.pack(side=tk.LEFT, padx=(10, 5))
+        
+        logic_title_label = tk.Label(logic_header, text="📊 分配逻辑说明（点击展开/折叠）", 
+                                      font=("Arial", 12, "bold"), bg="#1565C0", fg="white", cursor="hand2")
+        logic_title_label.pack(side=tk.LEFT, pady=8)
+        
+        # 内容区域（初始隐藏）
+        self.logic_content = tk.Frame(logic_collapsible_frame, bg="#FAFAFA", relief=tk.SUNKEN, borderwidth=2)
         
         # 创建4个阶段卡片
         stages = [
@@ -64,8 +81,8 @@ class AllocationApp:
         ]
         
         # 使用Frame来布局卡片
-        cards_frame = tk.Frame(logic_section, bg="#FAFAFA")
-        cards_frame.pack(fill=tk.X)
+        cards_frame = tk.Frame(self.logic_content, bg="#FAFAFA")
+        cards_frame.pack(fill=tk.X, padx=10, pady=10)
         
         for stage in stages:
             card = tk.Frame(cards_frame, bg=stage["color"], relief=tk.SOLID, 
@@ -99,11 +116,25 @@ class AllocationApp:
             details_label.pack(anchor=tk.W, pady=(2, 5))
         
         # 提示信息
-        hint_frame = tk.Frame(logic_section, bg="#E3F2FD")
-        hint_frame.pack(fill=tk.X, pady=(10, 0), padx=5)
+        hint_frame = tk.Frame(self.logic_content, bg="#E3F2FD")
+        hint_frame.pack(fill=tk.X, pady=(0, 10), padx=15)
         hint_label = tk.Label(hint_frame, text="💡 提示：分配按优先级顺序执行，如有剩余数量会继续下一阶段，可能有多个分配原因叠加",
                               font=("Arial", 9, "italic"), bg="#E3F2FD", fg="#1976D2")
         hint_label.pack(padx=10, pady=5)
+        
+        # 绑定点击事件
+        def toggle_logic(event=None):
+            if self.logic_expanded:
+                self.logic_content.pack_forget()
+                self.logic_toggle_label.config(text="▶")
+            else:
+                self.logic_content.pack(fill=tk.X, after=logic_header)
+                self.logic_toggle_label.config(text="▼")
+            self.logic_expanded = not self.logic_expanded
+        
+        logic_header.bind("<Button-1>", toggle_logic)
+        self.logic_toggle_label.bind("<Button-1>", toggle_logic)
+        logic_title_label.bind("<Button-1>", toggle_logic)
         
         # 文件选择区
         file_frame = tk.Frame(self.root)
