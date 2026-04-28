@@ -11,66 +11,67 @@ from allocation_core import allocate_add_order, generate_result_dataframe, DEFAU
 
 class AllocationApp:
     def __init__(self):
-        self.root = tk.Tk()
-        self.root.title("加单商品分配系统 v2.5")
-        self.root.geometry("1100x900")
-        self.root.minsize(1000, 800)
-        self.root.configure(bg="#F5F7FA")
-        
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
-        self.file_path = None
-        self.result_df = None
-        self.reason_df = None
-        
         try:
-            self.config = load_config()
-        except:
-            self.config = DEFAULT_CONFIG
-        
-        self.stage_colors = [
-            ("#E8F5FF", "#2563EB"),
-            ("#F0FDF4", "#059669"),
-            ("#FFF3E0", "#D97706"),
-            ("#F5F3FF", "#7C3AED"),
-        ]
-        
-        stage_names = {
-            "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-            "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
-            "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-        }
-        
-        default_stage_list = [
-            ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-            ("sales_match", "销量匹配", "依据历史销速加权分配"),
-            ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-        ]
-        
-        remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
-        
-        config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
-        self.stage_list = []
-        for stage_id in config_priority:
-            if stage_id in stage_names:
-                self.stage_list.append(stage_names[stage_id])
-        
-        if len(self.stage_list) != 3:
-            self.stage_list = default_stage_list.copy()
-        
-        self.stage_list.append(remaining_stage)
-        
-        self.stage_frames = []
-        self.stage_vars = []
-        
-        self.setup_styles()
-        self.create_widgets()
-        
-        print('应用程序初始化成功')
-    except Exception as e:
-        print(f'初始化错误: {e}')
-        traceback.print_exc()
-        messagebox.showerror("初始化错误", f"程序初始化失败:\n{str(e)}")
+            self.root = tk.Tk()
+            self.root.title("加单商品分配系统 v2.5")
+            self.root.geometry("1100x900")
+            self.root.minsize(1000, 800)
+            self.root.configure(bg="#F5F7FA")
+            
+            self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+            
+            self.file_path = None
+            self.result_df = None
+            self.reason_df = None
+            
+            try:
+                self.config = load_config()
+            except:
+                self.config = DEFAULT_CONFIG
+            
+            self.stage_colors = [
+                ("#E8F5FF", "#2563EB"),
+                ("#F0FDF4", "#059669"),
+                ("#FFF3E0", "#D97706"),
+                ("#F5F3FF", "#7C3AED"),
+            ]
+            
+            stage_names = {
+                "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+            }
+            
+            default_stage_list = [
+                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+            ]
+            
+            remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+            
+            config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
+            self.stage_list = []
+            for stage_id in config_priority:
+                if stage_id in stage_names:
+                    self.stage_list.append(stage_names[stage_id])
+            
+            if len(self.stage_list) != 3:
+                self.stage_list = default_stage_list.copy()
+            
+            self.stage_list.append(remaining_stage)
+            
+            self.stage_frames = []
+            self.stage_vars = []
+            
+            self.setup_styles()
+            self.create_widgets()
+            
+            print('应用程序初始化成功')
+        except Exception as e:
+            print(f'初始化错误: {e}')
+            traceback.print_exc()
+            messagebox.showerror("初始化错误", f"程序初始化失败:\n{str(e)}")
     
     def on_closing(self):
         try:
@@ -466,6 +467,8 @@ class AllocationApp:
         
         self.file_name_label = tk.Label(zone_content, text="", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#2563EB")
         self.file_name_label.pack(pady=(12, 0))
+        self.file_name_label.bind("<Button-1>", lambda e: self.browse_file())
+        self.file_name_label.config(cursor="hand2")
         
         action_zone = tk.Frame(upload_inner, bg="#2563EB", width=320)
         action_zone.pack(side=tk.RIGHT, fill=tk.BOTH)
