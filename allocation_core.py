@@ -299,7 +299,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
             store_data = {}
             for store in stores_sorted:
                 inv = get_inventory(df_inventory, store, sku)
-                sales_30d = get_30day_sales(df_sales, store, sku)
+                sales_30d = get_30day_sales(df_sales, sku, store)
                 level = get_store_level(df_store_level, store)
                 
                 total = sales_30d + inv
