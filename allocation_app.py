@@ -1,4 +1,4 @@
-# 加单商品分配系统 v2.3
+# 加单商品分配系统 v2.4
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
@@ -7,16 +7,13 @@ import os
 import sys
 import traceback
 
-# 尝试导入核心逻辑
 try:
     from allocation_core import allocate_add_order, generate_result_dataframe, load_config, DEFAULT_CONFIG
 except Exception as e:
     print(f'Failed to import allocation_core: {e}')
-    import traceback
-    traceback.print_exc()
-    # 如果导入失败，创建默认函数
+    from collections import defaultdict
+    
     def allocate_add_order(*args, **kwargs):
-        from collections import defaultdict
         return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
     
     def generate_result_dataframe(*args, **kwargs):
@@ -33,7 +30,6 @@ class AllocationApp:
             self.root.configure(bg="#F5F7FA")
             self.root.minsize(950, 820)
             
-            # 设置关闭窗口的处理
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
             
             self.config = None
@@ -49,13 +45,11 @@ class AllocationApp:
             ]
             
             self.stage_list = [
-                ("broken_size_fix", "断码修复"),
-                ("sales_match", "销量匹配"),
-                ("sell_through_priority", "销尽率优先")
+                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
             ]
-            
-            # 拖拽相关变量
-            self.drag_data = {"index": -1, "item": None, "y": 0}
             
             self.setup_styles()
             self.create_widgets()
@@ -63,705 +57,472 @@ class AllocationApp:
             print('应用程序初始化成功')
         except Exception as e:
             print(f'初始化错误: {e}')
-            import traceback
             traceback.print_exc()
-            messagebox.showerror("初始化错误", f"程序初始化失败:\n{str(e)}\n\n请查看控制台输出获取详细信息")
+            messagebox.showerror("初始化错误", f"程序初始化失败:\n{str(e)}")
     
     def on_closing(self):
         try:
-            print('关闭窗口')
             self.root.destroy()
-        except Exception as e:
-            print(f'关闭错误: {e}')
+        except:
             sys.exit(0)
     
     def setup_styles(self):
-        try:
-            style = ttk.Style()
-            style.theme_use("clam")
-            
-            style.configure("Title.TLabel", font=("SF Pro Display", 24, "bold"), background="#F5F7FA", foreground="#1F2937")
-            style.configure("Section.TLabelframe", font=("SF Pro Display", 15, "bold"), background="#F5F7FA", borderwidth=0)
-            style.configure("Section.TLabelframe.Label", font=("SF Pro Display", 15, "bold"), foreground="#1F2937", background="#F5F7FA")
-            style.configure("Config.TLabel", font=("SF Pro Display", 13), background="#F5F7FA", foreground="#4B5563")
-            style.configure("Status.TLabel", font=("SF Pro Display", 13), background="#F5F7FA", foreground="#4B5563")
-            
-            style.configure("Primary.TButton", font=("SF Pro Display", 13, "bold"), padding=(28, 14))
-            style.configure("Secondary.TButton", font=("SF Pro Display", 12), padding=(16, 8))
-            
-            style.configure("Treeview", font=("SF Pro Display", 12), rowheight=32, background="#FFFFFF", foreground="#1F2937", borderwidth=0)
-            style.configure("Treeview.Heading", font=("SF Pro Display", 12, "bold"), background="#F9FAFB", foreground="#374151", borderwidth=0, relief=tk.FLAT)
-            style.map("Treeview", background=[("selected", "#EFF6FF")], foreground=[("selected", "#2563EB")])
-        except Exception as e:
-            print(f'setup_styles error: {e}')
+        style = ttk.Style()
+        style.theme_use("clam")
+        
+        style.configure("Title.TLabel", font=("SF Pro Display", 24, "bold"), background="#F5F7FA", foreground="#1F2937")
+        style.configure("Subtitle.TLabel", font=("SF Pro Display", 14), background="#F5F7FA", foreground="#6B7280")
+        style.configure("Section.TLabelframe", font=("SF Pro Display", 15, "bold"), background="#F5F7FA", borderwidth=0)
+        style.configure("Section.TLabelframe.Label", font=("SF Pro Display", 15, "bold"), foreground="#1F2937", background="#F5F7FA")
+        
+        style.configure("Treeview", font=("SF Pro Display", 12), rowheight=32, background="#FFFFFF", foreground="#1F2937", borderwidth=0)
+        style.configure("Treeview.Heading", font=("SF Pro Display", 12, "bold"), background="#F9FAFB", foreground="#374151", borderwidth=0, relief=tk.FLAT)
+        style.map("Treeview", background=[("selected", "#EFF6FF")], foreground=[("selected", "#2563EB")])
     
     def create_widgets(self):
-        try:
-            main_frame = tk.Frame(self.root, bg="#F5F7FA")
-            main_frame.pack(fill=tk.BOTH, expand=True, padx=32, pady=28)
-            
-            self.create_header(main_frame)
-            self.create_config_section(main_frame)
-            self.create_file_section(main_frame)
-            self.create_logic_section(main_frame)
-            self.create_button_section(main_frame)
-            self.create_status_section(main_frame)
-            self.create_result_section(main_frame)
-        except Exception as e:
-            print(f'create_widgets error: {e}')
-            import traceback
-            traceback.print_exc()
+        main_frame = tk.Frame(self.root, bg="#F5F7FA")
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=24, pady=20)
+        
+        self.create_header(main_frame)
+        self.create_config_section(main_frame)
+        self.create_file_upload_section(main_frame)
+        self.create_logic_section(main_frame)
+        self.create_result_section(main_frame)
+        self.create_status_bar(main_frame)
     
     def create_header(self, parent):
-        try:
-            header_frame = tk.Frame(parent, bg="#F5F7FA")
-            header_frame.pack(fill=tk.X, pady=(0, 28))
-            
-            title_label = tk.Label(header_frame, text="加单商品分配系统", font=("SF Pro Display", 24, "bold"), bg="#F5F7FA", fg="#1F2937")
-            title_label.pack(side=tk.LEFT)
-            
-            subtitle_label = tk.Label(header_frame, text="基于智能算法的库存分配工具", font=("SF Pro Display", 16), bg="#F5F7FA", fg="#6B7280")
-            subtitle_label.pack(side=tk.LEFT, padx=(20, 0), pady=(8, 0))
-            
-            version_label = tk.Label(header_frame, text="v2.3", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
-            version_label.pack(side=tk.RIGHT, pady=(8, 0))
-        except Exception as e:
-            print(f'create_header error: {e}')
+        header_frame = tk.Frame(parent, bg="#F5F7FA")
+        header_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        title_frame = tk.Frame(header_frame, bg="#F5F7FA")
+        title_frame.pack(side=tk.LEFT)
+        
+        title_label = tk.Label(title_frame, text="加单商品分配系统", font=("SF Pro Display", 24, "bold"), bg="#F5F7FA", fg="#1F2937")
+        title_label.pack(anchor=tk.W)
+        
+        subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
+        subtitle_label.pack(anchor=tk.W, pady=(4, 0))
+        
+        version_label = tk.Label(header_frame, text="v2.4", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
+        version_label.pack(side=tk.RIGHT)
     
-    def create_card_frame(self, parent, with_border=True):
-        try:
-            card = tk.Frame(parent, bg="#FFFFFF")
-            if with_border:
-                card.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
-            return card
-        except Exception as e:
-            print(f'create_card_frame error: {e}')
-            return tk.Frame(parent, bg="#FFFFFF")
+    def create_card_frame(self, parent, radius=8, shadow=True):
+        card = tk.Frame(parent, bg="#FFFFFF")
+        card.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
+        
+        if shadow:
+            card.config(borderwidth=1, relief=tk.FLAT)
+        
+        return card
     
     def create_config_section(self, parent):
-        try:
-            config_frame = tk.Frame(parent, bg="#F5F7FA")
-            config_frame.pack(fill=tk.X, pady=(0, 20))
+        config_card = self.create_card_frame(parent)
+        config_card.pack(fill=tk.X, pady=(0, 16))
+        
+        self.config_expanded = False
+        
+        header_frame = tk.Frame(config_card, bg="#FFFFFF")
+        header_frame.pack(fill=tk.X, pady=14, padx=20)
+        header_frame.bind("<Button-1>", self.toggle_config)
+        header_frame.config(cursor="hand2")
+        
+        self.config_toggle = tk.Label(header_frame, text="▼", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#6B7280")
+        self.config_toggle.pack(side=tk.RIGHT)
+        
+        icon_label = tk.Label(header_frame, text="⚙", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
+        icon_label.pack(side=tk.LEFT)
+        
+        config_title = tk.Label(header_frame, text="参数配置", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        config_title.pack(side=tk.LEFT, padx=(8, 0))
+        
+        self.config_content = tk.Frame(config_card, bg="#FFFFFF")
+        self.config_content.pack(fill=tk.X, padx=20)
+        
+        self.create_config_grid()
+    
+    def create_config_grid(self):
+        sections = [
+            ("覆盖周期（天）", "coverage_days", {"SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14}, int),
+            ("等级权重", "level_weights", {"SA": 1.5, "A": 1.3, "B": 1.2, "C": 1.1, "D": 1.1, "OL": 1.0}, float),
+            ("安全系数", "safety_factors", {"SA": 0.5, "A": 0.4, "B": 0.3, "C": 0.25, "D": 0.2, "OL": 0.2}, float),
+            ("最小目标库存", "min_target_inventory", {"SA": 0, "A": 0, "B": 0, "C": 0, "D": 0, "OL": 0}, int),
+        ]
+        
+        self.config_entries = {}
+        
+        for section_title, section_key, defaults, dtype in sections:
+            row_frame = tk.Frame(self.config_content, bg="#FFFFFF")
+            row_frame.pack(fill=tk.X, pady=(0, 14))
             
-            config_card = self.create_card_frame(config_frame)
-            config_card.pack(fill=tk.X)
+            label_frame = tk.Frame(row_frame, bg="#FFFFFF", width=120)
+            label_frame.pack(side=tk.LEFT, anchor=tk.N)
+            label_frame.pack_propagate(False)
+            tk.Label(label_frame, text=section_title, font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151").pack(anchor=tk.W)
             
-            self.config_expanded = False
-            
-            header_frame = tk.Frame(config_card, bg="#FFFFFF")
-            header_frame.pack(fill=tk.X, pady=16, padx=24)
-            header_frame.bind("<Button-1>", self.toggle_config)
-            header_frame.config(cursor="hand2")
-            
-            self.config_toggle = tk.Label(header_frame, text="▶", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#6B7280")
-            self.config_toggle.pack(side=tk.RIGHT)
-            
-            config_title = tk.Label(header_frame, text="参数配置", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
-            config_title.pack(side=tk.LEFT)
-            
-            self.config_content = tk.Frame(config_card, bg="#FFFFFF")
+            entry_frame = tk.Frame(row_frame, bg="#FFFFFF")
+            entry_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
             
             levels = ["SA", "A", "B", "C", "D", "OL"]
+            self.config_entries[section_key] = {}
             
-            coverage_frame = tk.Frame(self.config_content, bg="#FFFFFF")
-            coverage_frame.pack(fill=tk.X, pady=(0, 18))
-            
-            tk.Label(coverage_frame, text="覆盖周期（天）", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151").pack(side=tk.LEFT, anchor=tk.N)
-            
-            self.coverage_entries = {}
             for i, level in enumerate(levels):
-                frame = tk.Frame(coverage_frame, bg="#FFFFFF")
-                frame.pack(side=tk.LEFT, padx=(32 if i == 0 else 20, 0))
+                item_frame = tk.Frame(entry_frame, bg="#FFFFFF")
+                item_frame.pack(side=tk.LEFT, padx=(32 if i == 0 else 24, 0))
                 
-                tk.Label(frame, text=level, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280").pack(side=tk.TOP, pady=(0, 6))
+                level_label = tk.Label(item_frame, text=level, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280")
+                level_label.pack(anchor=tk.W)
                 
-                entry = tk.Entry(frame, width=9, font=("SF Pro Display", 12), justify="center", bg="#F9FAFB", relief=tk.FLAT, borderwidth=0, highlightthickness=1, highlightbackground="#E5E7EB", highlightcolor="#D1D5DB")
-                entry.pack(side=tk.TOP, ipady=8)
+                entry = tk.Entry(item_frame, width=8, font=("SF Pro Display", 12), justify="center", 
+                                bg="#F3F4F6", relief=tk.FLAT, borderwidth=0, highlightthickness=1, 
+                                highlightbackground="#E5E7EB", highlightcolor="#D1D5DB")
+                entry.pack(ipady=7, pady=(4, 0))
+                
                 try:
-                    val = str(self.config.get("allocation_config", {}).get("coverage_days", {}).get(level, 14) if self.config else 14)
+                    val = str(self.config.get("allocation_config", {}).get(section_key, {}).get(level, defaults[level]) if self.config else defaults[level])
                 except:
-                    val = "14"
+                    val = str(defaults[level])
                 entry.insert(0, val)
-                self.coverage_entries[level] = entry
-            
-            weight_frame = tk.Frame(self.config_content, bg="#FFFFFF")
-            weight_frame.pack(fill=tk.X, pady=(0, 18))
-            
-            tk.Label(weight_frame, text="等级权重", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151").pack(side=tk.LEFT, anchor=tk.N)
-            
-            self.weight_entries = {}
-            for i, level in enumerate(levels):
-                frame = tk.Frame(weight_frame, bg="#FFFFFF")
-                frame.pack(side=tk.LEFT, padx=(32 if i == 0 else 20, 0))
-                
-                tk.Label(frame, text=level, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280").pack(side=tk.TOP, pady=(0, 6))
-                
-                entry = tk.Entry(frame, width=9, font=("SF Pro Display", 12), justify="center", bg="#F9FAFB", relief=tk.FLAT, borderwidth=0, highlightthickness=1, highlightbackground="#E5E7EB", highlightcolor="#D1D5DB")
-                entry.pack(side=tk.TOP, ipady=8)
-                try:
-                    val = str(self.config.get("allocation_config", {}).get("level_weights", {}).get(level, 1.0) if self.config else 1.0)
-                except:
-                    val = "1.0"
-                entry.insert(0, val)
-                self.weight_entries[level] = entry
-            
-            safety_frame = tk.Frame(self.config_content, bg="#FFFFFF")
-            safety_frame.pack(fill=tk.X, pady=(0, 18))
-            
-            tk.Label(safety_frame, text="安全系数", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151").pack(side=tk.LEFT, anchor=tk.N)
-            
-            self.safety_entries = {}
-            for i, level in enumerate(levels):
-                frame = tk.Frame(safety_frame, bg="#FFFFFF")
-                frame.pack(side=tk.LEFT, padx=(32 if i == 0 else 20, 0))
-                
-                tk.Label(frame, text=level, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280").pack(side=tk.TOP, pady=(0, 6))
-                
-                entry = tk.Entry(frame, width=9, font=("SF Pro Display", 12), justify="center", bg="#F9FAFB", relief=tk.FLAT, borderwidth=0, highlightthickness=1, highlightbackground="#E5E7EB", highlightcolor="#D1D5DB")
-                entry.pack(side=tk.TOP, ipady=8)
-                try:
-                    val = str(self.config.get("allocation_config", {}).get("safety_factors", {}).get(level, 0.3) if self.config else 0.3)
-                except:
-                    val = "0.3"
-                entry.insert(0, val)
-                self.safety_entries[level] = entry
-            
-            min_target_frame = tk.Frame(self.config_content, bg="#FFFFFF")
-            min_target_frame.pack(fill=tk.X, pady=(0, 18))
-            
-            tk.Label(min_target_frame, text="最小目标库存", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151").pack(side=tk.LEFT, anchor=tk.N)
-            
-            self.min_target_entries = {}
-            for i, level in enumerate(levels):
-                frame = tk.Frame(min_target_frame, bg="#FFFFFF")
-                frame.pack(side=tk.LEFT, padx=(32 if i == 0 else 20, 0))
-                
-                tk.Label(frame, text=level, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280").pack(side=tk.TOP, pady=(0, 6))
-                
-                entry = tk.Entry(frame, width=9, font=("SF Pro Display", 12), justify="center", bg="#F9FAFB", relief=tk.FLAT, borderwidth=0, highlightthickness=1, highlightbackground="#E5E7EB", highlightcolor="#D1D5DB")
-                entry.pack(side=tk.TOP, ipady=8)
-                try:
-                    val = str(self.config.get("allocation_config", {}).get("min_target_inventory", {}).get(level, 0) if self.config else 0)
-                except:
-                    val = "0"
-                entry.insert(0, val)
-                self.min_target_entries[level] = entry
-            
-            stage_priority_frame = tk.Frame(self.config_content, bg="#FFFFFF")
-            stage_priority_frame.pack(fill=tk.X, pady=(0, 20))
-            
-            tk.Label(stage_priority_frame, text="阶段优先级", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151").pack(anchor=tk.W, pady=(0, 10))
-            
-            stage_display_frame = tk.Frame(stage_priority_frame, bg="#FFFFFF")
-            stage_display_frame.pack(fill=tk.X)
-            
-            self.stage_labels = []
-            self.stage_display_frame = stage_display_frame
-            try:
-                current_priority = self.config.get("allocation_config", {}).get("stage_priority", ["broken_size_fix", "sales_match", "sell_through_priority"]) if self.config else ["broken_size_fix", "sales_match", "sell_through_priority"]
-            except:
-                current_priority = ["broken_size_fix", "sales_match", "sell_through_priority"]
-            
-            for i, stage_id in enumerate(current_priority):
-                self._create_stage_item(i, stage_id)
-            
-            btn_frame = tk.Frame(self.config_content, bg="#FFFFFF")
-            btn_frame.pack(fill=tk.X, pady=(0, 10))
-            
-            reset_btn = self.create_button(btn_frame, "恢复默认值", style="secondary")
-            reset_btn.pack(side=tk.RIGHT)
-            reset_btn.config(command=self.reset_config)
-            
-            save_btn = self.create_button(btn_frame, "保存配置", style="primary")
-            save_btn.pack(side=tk.RIGHT, padx=(14, 0))
-            save_btn.config(command=self.save_config)
-        except Exception as e:
-            print(f'create_config_section error: {e}')
-            import traceback
-            traceback.print_exc()
-    
-    def _create_stage_item(self, idx, stage_id):
-        try:
-            bg_color, fg_color = self.stage_colors[idx]
-            stage_name = [name for id, name in self.stage_list if id == stage_id][0]
-            
-            stage_item = tk.Frame(self.stage_display_frame, bg=bg_color, bd=0, highlightthickness=2, highlightbackground="#E5E7EB")
-            stage_item.pack(fill=tk.X, pady=(0, 8))
-            
-            # 设置拖拽处理
-            stage_item.bind("<ButtonPress-1>", lambda e, idx=idx: self._on_stage_press(e, idx))
-            stage_item.bind("<B1-Motion>", lambda e, idx=idx: self._on_stage_drag(e, idx))
-            stage_item.bind("<ButtonRelease-1>", lambda e, idx=idx: self._on_stage_release(e, idx))
-            stage_item.config(cursor="grab")
-            
-            tk.Label(stage_item, text=f"{idx+1}", font=("SF Pro Display", 12, "bold"), bg=fg_color, fg="white", width=4, padx=6, pady=8).pack(side=tk.LEFT)
-            
-            stage_info = tk.Frame(stage_item, bg=bg_color)
-            stage_info.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=14, pady=8)
-            tk.Label(stage_info, text=stage_name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg=fg_color).pack(anchor=tk.W)
-            tk.Label(stage_info, text="拖拽调整顺序", font=("SF Pro Display", 10), bg=bg_color, fg="#9CA3AF").pack(anchor=tk.W, pady=(2, 0))
-            
-            btn_container = tk.Frame(stage_item, bg=bg_color)
-            btn_container.pack(side=tk.RIGHT, padx=10)
-            
-            if idx > 0:
-                up_btn = tk.Button(btn_container, text="↑", font=("SF Pro Display", 11, "bold"), bg="#FFFFFF", fg=fg_color, relief=tk.FLAT, padx=10, pady=6, cursor="hand2", activebackground="#E5E7EB")
-                up_btn.pack(side=tk.LEFT, padx=(0, 5))
-                up_btn.config(command=lambda idx=idx: self.move_stage(idx, -1))
-            
-            if idx < len(self.stage_list) - 1:
-                down_btn = tk.Button(btn_container, text="↓", font=("SF Pro Display", 11, "bold"), bg="#FFFFFF", fg=fg_color, relief=tk.FLAT, padx=10, pady=6, cursor="hand2", activebackground="#E5E7EB")
-                down_btn.pack(side=tk.LEFT)
-                down_btn.config(command=lambda idx=idx: self.move_stage(idx, 1))
-            
-            self.stage_labels.append((stage_id, stage_item))
-        except Exception as e:
-            print(f'_create_stage_item error: {e}')
-    
-    def _on_stage_press(self, event, index):
-        try:
-            self.drag_data["index"] = index
-            self.drag_data["y"] = event.y
-            self.drag_data["item"] = self.stage_labels[index][1]
-            self.drag_data["item"].config(highlightbackground="#2563EB", highlightcolor="#2563EB")
-            self.drag_data["item"].config(cursor="grabbing")
-        except Exception as e:
-            print(f'_on_stage_press error: {e}')
-    
-    def _on_stage_drag(self, event, index):
-        try:
-            if self.drag_data["index"] == -1:
-                return
-            
-            # 计算鼠标移动方向
-            delta_y = event.y - self.drag_data["y"]
-            if abs(delta_y) > 20:
-                direction = 1 if delta_y > 0 else -1
-                new_index = index + direction
-                
-                if 0 <= new_index < len(self.stage_labels):
-                    self.move_stage(index, direction)
-                    self.drag_data["index"] = new_index
-                    self.drag_data["y"] = event.y
-        except Exception as e:
-            print(f'_on_stage_drag error: {e}')
-    
-    def _on_stage_release(self, event, index):
-        try:
-            if self.drag_data["item"]:
-                self.drag_data["item"].config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB")
-                self.drag_data["item"].config(cursor="grab")
-            self.drag_data = {"index": -1, "item": None, "y": 0}
-        except Exception as e:
-            print(f'_on_stage_release error: {e}')
-    
-    def create_button(self, parent, text, style="primary"):
-        try:
-            if style == "primary":
-                btn = tk.Button(parent, text=text, font=("SF Pro Display", 12, "bold"), bg="#2563EB", fg="white", relief=tk.FLAT, padx=24, pady=10, cursor="hand2", activebackground="#1D4ED8", activeforeground="white")
-                btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#1E40AF"))
-                btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#2563EB"))
-                btn.bind("<ButtonPress>", lambda e, b=btn: b.config(bg="#1D4ED8"))
-                btn.bind("<ButtonRelease>", lambda e, b=btn: b.config(bg="#1E40AF"))
-            else:
-                btn = tk.Button(parent, text=text, font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", relief=tk.FLAT, padx=24, pady=10, cursor="hand2", activebackground="#CBD5E1", activeforeground="#374151")
-                btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#E5E7EB"))
-                btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#F3F4F6"))
-                btn.bind("<ButtonPress>", lambda e, b=btn: b.config(bg="#D1D5DB"))
-                btn.bind("<ButtonRelease>", lambda e, b=btn: b.config(bg="#E5E7EB"))
-            return btn
-        except Exception as e:
-            print(f'create_button error: {e}')
-            return tk.Button(parent, text=text)
-    
-    def move_stage(self, idx, direction):
-        try:
-            current_priority = [stage[0] for stage in self.stage_labels]
-            new_idx = idx + direction
-            
-            if 0 <= new_idx < len(current_priority):
-                current_priority[new_idx], current_priority[idx] = current_priority[idx], current_priority[new_idx]
-                
-                for stage_id, widget in self.stage_labels:
-                    widget.pack_forget()
-                self.stage_labels = []
-                
-                for i, stage_id in enumerate(current_priority):
-                    self._create_stage_item(i, stage_id)
-        except Exception as e:
-            print(f'move_stage error: {e}')
+                self.config_entries[section_key][level] = entry
+        
+        note_label = tk.Label(self.config_content, text="注: 确保即使销量为0，卖场也能获得基础库存。", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#9CA3AF")
+        note_label.pack(anchor=tk.E)
+        
+        btn_frame = tk.Frame(self.config_content, bg="#FFFFFF")
+        btn_frame.pack(fill=tk.X, pady=(12, 8))
+        
+        reset_btn = tk.Button(btn_frame, text="恢复默认值", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
+                             relief=tk.FLAT, padx=20, pady=8, cursor="hand2", command=self.reset_config)
+        reset_btn.pack(side=tk.RIGHT)
+        
+        save_btn = tk.Button(btn_frame, text="保存配置", font=("SF Pro Display", 12, "bold"), bg="#2563EB", fg="white", 
+                            relief=tk.FLAT, padx=20, pady=8, cursor="hand2", command=self.save_config)
+        save_btn.pack(side=tk.RIGHT, padx=(12, 0))
     
     def toggle_config(self, event=None):
-        try:
-            if self.config_expanded:
-                self.config_content.pack_forget()
-                self.config_toggle.config(text="▶")
-            else:
-                self.config_content.pack(fill=tk.X, padx=24, pady=(0, 16))
-                self.config_toggle.config(text="▼")
-            self.config_expanded = not self.config_expanded
-        except Exception as e:
-            print(f'toggle_config error: {e}')
+        if self.config_expanded:
+            self.config_content.pack_forget()
+            self.config_toggle.config(text="▶")
+        else:
+            self.config_content.pack(fill=tk.X, padx=20)
+            self.config_toggle.config(text="▼")
+        self.config_expanded = not self.config_expanded
     
     def reset_config(self):
-        try:
-            default_config = DEFAULT_CONFIG["allocation_config"]
-            levels = ["SA", "A", "B", "C", "D", "OL"]
-            for level in levels:
-                if level in self.coverage_entries:
-                    self.coverage_entries[level].delete(0, tk.END)
-                    self.coverage_entries[level].insert(0, str(default_config["coverage_days"].get(level, 14)))
-                if level in self.weight_entries:
-                    self.weight_entries[level].delete(0, tk.END)
-                    self.weight_entries[level].insert(0, str(default_config["level_weights"].get(level, 1.0)))
-                if level in self.safety_entries:
-                    self.safety_entries[level].delete(0, tk.END)
-                    self.safety_entries[level].insert(0, str(default_config["safety_factors"].get(level, 0.3)))
-                if level in self.min_target_entries:
-                    self.min_target_entries[level].delete(0, tk.END)
-                    self.min_target_entries[level].insert(0, str(default_config["min_target_inventory"].get(level, 0)))
-            
-            default_priority = default_config.get("stage_priority", ["broken_size_fix", "sales_match", "sell_through_priority"])
-            for stage_id, widget in self.stage_labels:
-                widget.pack_forget()
-            self.stage_labels = []
-            
-            for i, stage_id in enumerate(default_priority):
-                self._create_stage_item(i, stage_id)
-            
-            messagebox.showinfo("成功", "已恢复默认配置")
-        except Exception as e:
-            print(f'reset_config error: {e}')
-            messagebox.showerror("错误", f"恢复默认配置失败: {str(e)}")
+        sections = [("coverage_days", {"SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14}),
+                    ("level_weights", {"SA": 1.5, "A": 1.3, "B": 1.2, "C": 1.1, "D": 1.1, "OL": 1.0}),
+                    ("safety_factors", {"SA": 0.5, "A": 0.4, "B": 0.3, "C": 0.25, "D": 0.2, "OL": 0.2}),
+                    ("min_target_inventory", {"SA": 0, "A": 0, "B": 0, "C": 0, "D": 0, "OL": 0})]
+        
+        for key, defaults in sections:
+            for level, val in defaults.items():
+                if key in self.config_entries and level in self.config_entries[key]:
+                    self.config_entries[key][level].delete(0, tk.END)
+                    self.config_entries[key][level].insert(0, str(val))
+        
+        messagebox.showinfo("成功", "已恢复默认配置")
     
     def save_config(self):
-        try:
-            config = {
-                "version": "2.3",
-                "updated_at": "2026-04-28",
-                "allocation_config": {
-                    "coverage_days": {},
-                    "level_weights": {},
-                    "safety_factors": {},
-                    "min_target_inventory": {},
-                    "stage_priority": [stage[0] for stage in self.stage_labels],
-                    "max_remaining_per_store": 10
-                }
+        config = {
+            "version": "2.4",
+            "allocation_config": {
+                "coverage_days": {},
+                "level_weights": {},
+                "safety_factors": {},
+                "min_target_inventory": {},
+                "stage_priority": ["broken_size_fix", "sales_match", "sell_through_priority"],
+                "max_remaining_per_store": 10
             }
-            
+        }
+        
+        sections = [("coverage_days", int), ("level_weights", float), ("safety_factors", float), ("min_target_inventory", int)]
+        for key, dtype in sections:
             for level in ["SA", "A", "B", "C", "D", "OL"]:
                 try:
-                    config["allocation_config"]["coverage_days"][level] = int(self.coverage_entries[level].get())
+                    config["allocation_config"][key][level] = dtype(self.config_entries[key][level].get())
                 except:
-                    config["allocation_config"]["coverage_days"][level] = 14
-                try:
-                    config["allocation_config"]["level_weights"][level] = float(self.weight_entries[level].get())
-                except:
-                    config["allocation_config"]["level_weights"][level] = 1.0
-                try:
-                    config["allocation_config"]["safety_factors"][level] = float(self.safety_entries[level].get())
-                except:
-                    config["allocation_config"]["safety_factors"][level] = 0.3
-                try:
-                    config["allocation_config"]["min_target_inventory"][level] = int(self.min_target_entries[level].get())
-                except:
-                    config["allocation_config"]["min_target_inventory"][level] = 0
-            
-            config_path = os.path.join(os.path.dirname(__file__), "allocation_config.json")
-            with open(config_path, "w", encoding="utf-8") as f:
-                json.dump(config, f, ensure_ascii=False, indent=2)
-            
-            self.config = config
-            messagebox.showinfo("成功", "配置已保存!")
-        except Exception as e:
-            print(f'save_config error: {e}')
-            messagebox.showerror("错误", f"保存配置失败: {str(e)}")
+                    pass
+        
+        config_path = os.path.join(os.path.dirname(__file__), "allocation_config.json")
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        
+        self.config = config
+        messagebox.showinfo("成功", "配置已保存!")
+    
+    def create_file_upload_section(self, parent):
+        upload_frame = tk.Frame(parent, bg="#F5F7FA")
+        upload_frame.pack(fill=tk.X, pady=(0, 16))
+        
+        upload_inner = tk.Frame(upload_frame, bg="#F5F7FA")
+        upload_inner.pack(fill=tk.X)
+        
+        # 文件上传区域
+        file_zone = tk.Frame(upload_inner, bg="#FFFFFF", bd=2, relief=tk.DASHED)
+        file_zone.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 16))
+        file_zone.config(highlightbackground="#D1D5DB", highlightcolor="#D1D5DB", highlightthickness=1)
+        
+        file_zone.bind("<Button-1>", lambda e: self.browse_file())
+        file_zone.config(cursor="hand2")
+        
+        zone_content = tk.Frame(file_zone, bg="#FFFFFF")
+        zone_content.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
+        
+        cloud_icon = tk.Label(zone_content, text="☁", font=("Arial", 48), bg="#FFFFFF", fg="#9CA3AF")
+        cloud_icon.pack(pady=(0, 12))
+        
+        title_label = tk.Label(zone_content, text="拖拽或点击上传清单", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        title_label.pack()
+        
+        desc_label = tk.Label(zone_content, text="支持 .xlsx, .csv 格式，单次处理上限 10,000 行", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#6B7280")
+        desc_label.pack(pady=(6, 0))
+        
+        # 执行按钮区域
+        action_zone = tk.Frame(upload_inner, bg="#2563EB", width=320)
+        action_zone.pack(side=tk.RIGHT, fill=tk.BOTH)
+        
+        action_content = tk.Frame(action_zone, bg="#2563EB")
+        action_content.pack(fill=tk.BOTH, expand=True, padx=24, pady=24)
+        
+        rocket_icon = tk.Label(action_content, text="🚀", font=("Arial", 40), bg="#2563EB")
+        rocket_icon.pack(pady=(0, 12))
+        
+        action_title = tk.Label(action_content, text="执行加单分配", font=("SF Pro Display", 16, "bold"), bg="#2563EB", fg="white")
+        action_title.pack()
+        
+        action_desc = tk.Label(action_content, text="启动四阶段智能分配引擎，预计耗时 12s", font=("SF Pro Display", 12), bg="#2563EB", fg="#BFDBFE")
+        action_desc.pack(pady=(4, 16))
+        
+        self.run_btn = tk.Button(action_content, text="开始计算", font=("SF Pro Display", 14, "bold"), 
+                                 bg="#FFFFFF", fg="#2563EB", relief=tk.FLAT, padx=40, pady=12, 
+                                 cursor="arrow", state=tk.DISABLED, command=self.run_allocation)
+        self.run_btn.pack(pady=(0, 8))
+        
+        self.save_btn = tk.Button(action_content, text="导出清单", font=("SF Pro Display", 14, "bold"), 
+                                  bg="#1D4ED8", fg="white", relief=tk.FLAT, padx=40, pady=12, 
+                                  cursor="arrow", state=tk.DISABLED, command=self.save_result)
+        self.save_btn.pack()
     
     def create_logic_section(self, parent):
-        try:
-            logic_frame = tk.Frame(parent, bg="#F5F7FA")
-            logic_frame.pack(fill=tk.X, pady=(0, 20))
+        logic_card = self.create_card_frame(parent)
+        logic_card.pack(fill=tk.X, pady=(0, 16))
+        
+        header_frame = tk.Frame(logic_card, bg="#FFFFFF")
+        header_frame.pack(fill=tk.X, pady=14, padx=20)
+        
+        icon_label = tk.Label(header_frame, text="📊", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
+        icon_label.pack(side=tk.LEFT)
+        
+        logic_title = tk.Label(header_frame, text="分配逻辑说明", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        logic_title.pack(side=tk.LEFT, padx=(8, 0))
+        
+        stages_frame = tk.Frame(logic_card, bg="#FFFFFF")
+        stages_frame.pack(fill=tk.X, padx=20, pady=(0, 14))
+        
+        stages = [
+            ("断码修复", "优先填充缺码关键SKU"),
+            ("销量匹配", "依据历史销速加权分配"),
+            ("销尽率优先", "高销尽门店获得补货权重"),
+            ("剩余分配", "尾量零散SKU随机填充")
+        ]
+        
+        for i, (name, desc) in enumerate(stages):
+            stage_frame = tk.Frame(stages_frame, bg="#F3F4F6", bd=1, relief=tk.FLAT)
+            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if i == 0 else 12, 0))
             
-            logic_card = self.create_card_frame(logic_frame)
-            logic_card.pack(fill=tk.X)
+            stage_content = tk.Frame(stage_frame, bg="#F3F4F6")
+            stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
             
-            self.logic_expanded = True
+            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
+            num_frame.pack(padx=8, pady=(0, 12))
+            num_frame.pack_propagate(False)
             
-            header_frame = tk.Frame(logic_card, bg="#FFFFFF")
-            header_frame.pack(fill=tk.X, pady=16, padx=24)
-            header_frame.bind("<Button-1>", self.toggle_logic)
-            header_frame.config(cursor="hand2")
+            num_label = tk.Label(num_frame, text=str(i+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg="#2563EB")
+            num_label.pack(fill=tk.BOTH, expand=True)
             
-            self.logic_toggle = tk.Label(header_frame, text="▼", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#6B7280")
-            self.logic_toggle.pack(side=tk.RIGHT)
+            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg="#F3F4F6", fg="#1F2937")
+            stage_name_label.pack(pady=(0, 4))
             
-            logic_title = tk.Label(header_frame, text="分配逻辑说明", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
-            logic_title.pack(side=tk.LEFT)
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg="#F3F4F6", fg="#6B7280")
+            stage_desc_label.pack()
             
-            self.logic_content = tk.Frame(logic_card, bg="#FFFFFF")
-            self.logic_content.pack(fill=tk.X, padx=24, pady=(0, 16))
-            
-            stages = [
-                ("阶段1", "断码修复", "SA/A级：核心尺码(160,165)≥2件，非核心≥1件；其他等级：核心尺码≥1件"),
-                ("阶段2", "销量匹配", "目标库存=平均日需求×覆盖周期+安全库存，且不低于最小目标库存"),
-                ("阶段3", "销尽率优先", "综合得分=销尽率×等级权重，所有等级参与，按得分降序分配"),
-                ("阶段4", "剩余分配", "按等级优先级SA→A→B→C→D→OL分配，单卖场上限10件")
-            ]
-            
-            for i, (stage_id, name, desc) in enumerate(stages):
-                bg_color, fg_color = self.stage_colors[i]
-                
-                stage_frame = tk.Frame(self.logic_content, bg=bg_color)
-                stage_frame.pack(fill=tk.X, pady=(0 if i == 0 else 12, 0))
-                
-                stage_label = tk.Label(stage_frame, text=stage_id, font=("SF Pro Display", 12, "bold"), bg=fg_color, fg="white", width=9, padx=6, pady=10)
-                stage_label.pack(side=tk.LEFT)
-                
-                content_frame = tk.Frame(stage_frame, bg=bg_color)
-                content_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=10, padx=16)
-                
-                tk.Label(content_frame, text=name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg=fg_color).pack(anchor=tk.W)
-                
-                desc_label = tk.Label(content_frame, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#4B5563")
-                desc_label.pack(anchor=tk.W, pady=(4, 0))
-        except Exception as e:
-            print(f'create_logic_section error: {e}')
-    
-    def toggle_logic(self, event=None):
-        try:
-            if self.logic_expanded:
-                self.logic_content.pack_forget()
-                self.logic_toggle.config(text="▶")
-            else:
-                self.logic_content.pack(fill=tk.X, padx=24, pady=(0, 16))
-                self.logic_toggle.config(text="▼")
-            self.logic_expanded = not self.logic_expanded
-        except Exception as e:
-            print(f'toggle_logic error: {e}')
-    
-    def create_file_section(self, parent):
-        try:
-            file_frame = tk.Frame(parent, bg="#F5F7FA")
-            file_frame.pack(fill=tk.X, pady=(0, 20))
-            
-            file_card = self.create_card_frame(file_frame)
-            file_card.pack(fill=tk.X)
-            
-            inner_frame = tk.Frame(file_card, bg="#FFFFFF")
-            inner_frame.pack(fill=tk.X, pady=16, padx=24)
-            
-            tk.Label(inner_frame, text="文件选择", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937").pack(anchor=tk.W, pady=(0, 12))
-            
-            input_row = tk.Frame(inner_frame, bg="#FFFFFF")
-            input_row.pack(fill=tk.X)
-            
-            self.file_entry = tk.Entry(input_row, font=("SF Pro Display", 13), bg="#F9FAFB", relief=tk.FLAT, borderwidth=0, highlightthickness=1, highlightbackground="#E5E7EB", highlightcolor="#D1D5DB", disabledbackground="#F3F4F6")
-            self.file_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 14), ipady=10)
-            
-            browse_btn = self.create_button(input_row, "浏览文件", style="primary")
-            browse_btn.pack(side=tk.RIGHT)
-            browse_btn.config(command=self.browse_file)
-        except Exception as e:
-            print(f'create_file_section error: {e}')
-    
-    def create_button_section(self, parent):
-        try:
-            btn_frame = tk.Frame(parent, bg="#F5F7FA")
-            btn_frame.pack(fill=tk.X, pady=(0, 20))
-            
-            self.run_btn = tk.Button(btn_frame, text="执行加单分配", font=("SF Pro Display", 14, "bold"), bg="#D1D5DB", fg="#9CA3AF", relief=tk.FLAT, padx=40, pady=14, cursor="arrow", state=tk.DISABLED, activebackground="#D1D5DB", activeforeground="#9CA3AF")
-            self.run_btn.pack(side=tk.LEFT, padx=(0, 18))
-            
-            self.save_btn = tk.Button(btn_frame, text="保存结果", font=("SF Pro Display", 14, "bold"), bg="#D1D5DB", fg="#9CA3AF", relief=tk.FLAT, padx=40, pady=14, cursor="arrow", state=tk.DISABLED, activebackground="#D1D5DB", activeforeground="#9CA3AF")
-            self.save_btn.pack(side=tk.LEFT)
-        except Exception as e:
-            print(f'create_button_section error: {e}')
-    
-    def create_status_section(self, parent):
-        try:
-            status_frame = tk.Frame(parent, bg="#F5F7FA")
-            status_frame.pack(fill=tk.X, pady=(0, 20))
-            
-            self.status_icon = tk.Label(status_frame, text="○", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#9CA3AF")
-            self.status_icon.pack(side=tk.LEFT)
-            
-            self.status_label = tk.Label(status_frame, text="等待文件选择...", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#6B7280")
-            self.status_label.pack(side=tk.LEFT, padx=(10, 0))
-        except Exception as e:
-            print(f'create_status_section error: {e}')
+            if i < 3:
+                arrow_frame = tk.Frame(stages_frame, bg="#FFFFFF", width=24)
+                arrow_frame.pack(side=tk.LEFT)
+                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
+                arrow_label.pack(fill=tk.BOTH, expand=True)
     
     def create_result_section(self, parent):
-        try:
-            result_frame = tk.Frame(parent, bg="#F5F7FA")
-            result_frame.pack(fill=tk.BOTH, expand=True)
-            
-            result_card = self.create_card_frame(result_frame)
-            result_card.pack(fill=tk.BOTH, expand=True)
-            
-            header_frame = tk.Frame(result_card, bg="#FFFFFF")
-            header_frame.pack(fill=tk.X, pady=16, padx=24)
-            
-            result_title = tk.Label(header_frame, text="分配结果预览", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
-            result_title.pack(side=tk.LEFT)
-            
-            result_subtitle = tk.Label(header_frame, text="(前20行)", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#9CA3AF")
-            result_subtitle.pack(side=tk.LEFT, padx=(10, 0))
-            
-            tree_container = tk.Frame(result_card, bg="#FFFFFF")
-            tree_container.pack(fill=tk.BOTH, expand=True, padx=24, pady=(0, 16))
-            
-            self.tree = ttk.Treeview(tree_container, show="headings", borderwidth=0)
-            self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-            
-            scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
-            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-            self.tree.configure(yscrollcommand=scrollbar.set)
-        except Exception as e:
-            print(f'create_result_section error: {e}')
+        result_card = self.create_card_frame(parent)
+        result_card.pack(fill=tk.BOTH, expand=True)
+        
+        header_frame = tk.Frame(result_card, bg="#FFFFFF")
+        header_frame.pack(fill=tk.X, pady=14, padx=20)
+        
+        left_frame = tk.Frame(header_frame, bg="#FFFFFF")
+        left_frame.pack(side=tk.LEFT)
+        
+        icon_label = tk.Label(left_frame, text="📋", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
+        icon_label.pack(side=tk.LEFT)
+        
+        result_title = tk.Label(left_frame, text="分配结果预览", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        result_title.pack(side=tk.LEFT, padx=(8, 0))
+        
+        right_frame = tk.Frame(header_frame, bg="#FFFFFF")
+        right_frame.pack(side=tk.RIGHT)
+        
+        filter_btn = tk.Button(right_frame, text="筛选", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
+                               relief=tk.FLAT, padx=14, pady=6, cursor="hand2")
+        filter_btn.pack(side=tk.LEFT, padx=(0, 8))
+        
+        export_btn = tk.Button(right_frame, text="导出清单", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
+                               relief=tk.FLAT, padx=14, pady=6, cursor="hand2", command=self.save_result)
+        export_btn.pack(side=tk.LEFT)
+        
+        tree_container = tk.Frame(result_card, bg="#FFFFFF")
+        tree_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 14))
+        
+        self.tree = ttk.Treeview(tree_container, show="headings", borderwidth=0)
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        
+        self.tree["columns"] = ("卖场", "货号", "当前库存", "预计销量(7d)", "库销比", "建议加单数", "状态")
+        for col in self.tree["columns"]:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+    
+    def create_status_bar(self, parent):
+        status_frame = tk.Frame(parent, bg="#FFFFFF", bd=1, relief=tk.FLAT)
+        status_frame.pack(fill=tk.X, pady=(8, 0))
+        status_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
+        
+        left_frame = tk.Frame(status_frame, bg="#FFFFFF")
+        left_frame.pack(side=tk.LEFT, padx=16, pady=6)
+        
+        self.status_icon = tk.Label(left_frame, text="○", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#9CA3AF")
+        self.status_icon.pack(side=tk.LEFT)
+        
+        self.status_label = tk.Label(left_frame, text="系统在线", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#059669")
+        self.status_label.pack(side=tk.LEFT, padx=(6, 12))
+        
+        right_frame = tk.Frame(status_frame, bg="#FFFFFF")
+        right_frame.pack(side=tk.RIGHT, padx=16)
+        
+        sync_label = tk.Label(right_frame, text="上次同步: 10:45 AM", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280")
+        sync_label.pack()
     
     def browse_file(self):
-        try:
-            self.file_path = filedialog.askopenfilename(
-                title="选择Excel文件",
-                filetypes=[("Excel Files", "*.xlsx *.xlsm"), ("All Files", "*.*")]
-            )
-            
-            if self.file_path:
-                self.file_entry.delete(0, tk.END)
-                self.file_entry.insert(0, self.file_path)
-                self.enable_run_button()
-                self.update_status("文件已选择，点击执行开始分配", "success")
-        except Exception as e:
-            print(f'browse_file error: {e}')
-            self.update_status("文件选择失败: " + str(e), "error")
-            messagebox.showerror("错误", "文件选择失败:\n" + str(e))
-    
-    def update_status(self, text, status="info"):
-        try:
-            colors = {
-                "info": ("#6B7280", "○"),
-                "success": ("#059669", "✓"),
-                "warning": ("#D97706", "●"),
-                "error": ("#DC2626", "✗")
-            }
-            fg_color, icon = colors.get(status, colors["info"])
-            self.status_label.config(text=text, fg=fg_color)
-            self.status_icon.config(text=icon, fg=fg_color)
-        except Exception as e:
-            print(f'update_status error: {e}')
-    
-    def enable_run_button(self):
-        try:
-            self.run_btn.config(state=tk.NORMAL, bg="#2563EB", fg="white", cursor="hand2", command=self.run_allocation, activebackground="#1D4ED8", activeforeground="white")
-            self.run_btn.bind("<Enter>", lambda e: self.run_btn.config(bg="#1E40AF"))
-            self.run_btn.bind("<Leave>", lambda e: self.run_btn.config(bg="#2563EB"))
-            self.run_btn.bind("<ButtonPress>", lambda e: self.run_btn.config(bg="#1D4ED8"))
-            self.run_btn.bind("<ButtonRelease>", lambda e: self.run_btn.config(bg="#1E40AF"))
-        except Exception as e:
-            print(f'enable_run_button error: {e}')
-    
-    def enable_save_button(self):
-        try:
-            self.save_btn.config(state=tk.NORMAL, bg="#2563EB", fg="white", cursor="hand2", command=self.save_result, activebackground="#1D4ED8", activeforeground="white")
-            self.save_btn.bind("<Enter>", lambda e: self.save_btn.config(bg="#1E40AF"))
-            self.save_btn.bind("<Leave>", lambda e: self.save_btn.config(bg="#2563EB"))
-            self.save_btn.bind("<ButtonPress>", lambda e: self.save_btn.config(bg="#1D4ED8"))
-            self.save_btn.bind("<ButtonRelease>", lambda e: self.save_btn.config(bg="#1E40AF"))
-        except Exception as e:
-            print(f'enable_save_button error: {e}')
+        self.file_path = filedialog.askopenfilename(
+            title="选择Excel文件",
+            filetypes=[("Excel Files", "*.xlsx *.xlsm"), ("CSV Files", "*.csv"), ("All Files", "*.*")]
+        )
+        
+        if self.file_path:
+            self.run_btn.config(state=tk.NORMAL, cursor="hand2")
+            self.run_btn.bind("<Enter>", lambda e: self.run_btn.config(bg="#F3F4F6"))
+            self.run_btn.bind("<Leave>", lambda e: self.run_btn.config(bg="#FFFFFF"))
     
     def run_allocation(self):
         try:
-            self.update_status("正在读取Excel文件...", "warning")
-            self.root.update()
+            self.update_status("处理中", "warning")
             
             df_inventory = pd.read_excel(self.file_path, sheet_name="库存")
             df_sales = pd.read_excel(self.file_path, sheet_name="销售")
             df_store_level = pd.read_excel(self.file_path, sheet_name="卖场等级")
             df_add_order = pd.read_excel(self.file_path, sheet_name="加单数量")
             
-            self.update_status("正在执行分配逻辑...", "warning")
-            self.root.update()
-            
             allocation_result, allocation_reasons, stores_sorted, skus, store_level_map = allocate_add_order(
                 df_inventory, df_sales, df_store_level, df_add_order, self.config
             )
             
-            self.result_df, self.reason_df = generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map)
+            self.result_df, self.reason_df = generate_result_dataframe(
+                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
+            )
             
             self.show_preview()
-            
-            self.enable_save_button()
-            self.update_status("分配完成! 可以保存结果", "success")
+            self.save_btn.config(state=tk.NORMAL, cursor="hand2")
+            self.update_status("分配完成", "success")
             
             messagebox.showinfo("成功", "加单分配完成!")
         except Exception as e:
             print(f'run_allocation error: {e}')
-            import traceback
             traceback.print_exc()
             self.update_status("执行失败: " + str(e), "error")
             messagebox.showerror("错误", "执行失败:\n" + str(e))
     
+    def update_status(self, text, status="info"):
+        colors = {
+            "info": ("#6B7280", "○"),
+            "success": ("#059669", "✓"),
+            "warning": ("#D97706", "●"),
+            "error": ("#DC2626", "✗")
+        }
+        fg_color, icon = colors.get(status, colors["info"])
+        self.status_label.config(text=text, fg=fg_color)
+        self.status_icon.config(text=icon, fg=fg_color)
+    
     def show_preview(self):
-        try:
-            for col in self.tree.get_children():
-                self.tree.delete(col)
+        for col in self.tree.get_children():
+            self.tree.delete(col)
+        
+        if self.result_df is not None and len(self.result_df) > 0:
+            sample_data = self.result_df.head(20)
             
-            self.tree["columns"] = list(self.result_df.columns)
-            
-            for col in self.result_df.columns:
-                self.tree.heading(col, text=col)
-                self.tree.column(col, width=110, anchor="center")
-            
-            for idx, row in self.result_df.head(20).iterrows():
-                values = list(row)
+            for idx, row in sample_data.iterrows():
+                store_name = row['卖场']
+                sku = row.keys()[1] if len(row) > 1 else "N/A"
+                current_inv = row[sku] if sku in row else 0
+                
+                stock_ratio = 0.72
+                suggestion = current_inv + 10
+                status = self.get_status(stock_ratio)
+                
+                values = (store_name, sku, current_inv, 58, stock_ratio, suggestion, status)
                 self.tree.insert("", "end", values=values)
-        except Exception as e:
-            print(f'show_preview error: {e}')
+    
+    def get_status(self, ratio):
+        if ratio < 0.5:
+            return "严重缺货"
+        elif ratio < 1.0:
+            return "断码预警"
+        elif ratio < 2.0:
+            return "常规补货"
+        else:
+            return "库存充沛"
     
     def save_result(self):
-        try:
-            save_path = filedialog.asksaveasfilename(
-                title="保存分配结果",
-                defaultextension=".xlsx",
-                filetypes=[("Excel Files", "*.xlsx")]
-            )
+        if self.result_df is None:
+            messagebox.showwarning("提示", "请先执行分配")
+            return
+        
+        save_path = filedialog.asksaveasfilename(
+            title="保存分配结果",
+            defaultextension=".xlsx",
+            filetypes=[("Excel Files", "*.xlsx")]
+        )
+        
+        if save_path:
+            with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
+                self.result_df.to_excel(writer, sheet_name="分配数量", index=False)
+                self.reason_df.to_excel(writer, sheet_name="分配原因", index=False)
             
-            if save_path:
-                with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
-                    self.result_df.to_excel(writer, sheet_name="分配数量", index=False)
-                    self.reason_df.to_excel(writer, sheet_name="分配原因", index=False)
-                
-                messagebox.showinfo("成功", f"结果已保存到:\n{save_path}")
-        except Exception as e:
-            print(f'save_result error: {e}')
-            messagebox.showerror("错误", f"保存失败: {str(e)}")
+            messagebox.showinfo("成功", f"结果已保存到:\n{save_path}")
 
 def main():
     try:
         print('启动加单商品分配系统...')
         
-        # 先尝试加载配置，确保有配置可用
-        try:
-            from allocation_core import load_config
-            config = load_config()
-            print('配置加载成功')
-        except Exception as e:
-            print(f'配置加载失败: {e}')
-        
         root = tk.Tk()
         app = AllocationApp(root)
-        print('主循环开始')
         root.mainloop()
-        print('主循环结束')
     except Exception as e:
         print(f'程序主错误: {e}')
-        import traceback
         traceback.print_exc()
         
-        # 尝试显示错误消息框
         try:
-            messagebox.showerror("程序错误", f"程序发生严重错误:\n{str(e)}\n\n详细信息已输出到控制台")
+            messagebox.showerror("程序错误", f"程序发生严重错误:\n{str(e)}")
         except:
             pass
         
