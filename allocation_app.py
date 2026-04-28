@@ -175,7 +175,7 @@ class AllocationApp:
             row_frame = tk.Frame(self.config_content, bg="#FFFFFF")
             row_frame.pack(fill=tk.X, pady=(0, 14))
             
-            tk.Label(row_frame, text=section_title, font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#374151", width=14, anchor="w").pack(side=tk.LEFT, padx=(0, 20))
+            tk.Label(row_frame, text=section_title, font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#1F2937", width=14, anchor="w").pack(side=tk.LEFT, padx=(0, 20))
             
             entry_frame = tk.Frame(row_frame, bg="#FFFFFF")
             entry_frame.pack(side=tk.LEFT, expand=True, fill=tk.X)
@@ -445,27 +445,27 @@ class AllocationApp:
         file_zone.config(cursor="hand2")
         
         zone_content = tk.Frame(file_zone, bg="#FFFFFF")
-        zone_content.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
+        zone_content.pack(fill=tk.BOTH, expand=True, padx=60, pady=50)
         zone_content.bind("<Button-1>", lambda e: self.browse_file())
         zone_content.config(cursor="hand2")
         
-        cloud_icon = tk.Label(zone_content, text="☁", font=("Arial", 48), bg="#FFFFFF", fg="#9CA3AF")
-        cloud_icon.pack(pady=(0, 12))
+        cloud_icon = tk.Label(zone_content, text="☁", font=("Arial", 56), bg="#FFFFFF", fg="#9CA3AF")
+        cloud_icon.pack(pady=(0, 16))
         cloud_icon.bind("<Button-1>", lambda e: self.browse_file())
         cloud_icon.config(cursor="hand2")
         
-        title_label = tk.Label(zone_content, text="拖拽或点击上传清单", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        title_label = tk.Label(zone_content, text="拖拽或点击上传清单", font=("SF Pro Display", 16, "bold"), bg="#FFFFFF", fg="#1F2937")
         title_label.pack()
         title_label.bind("<Button-1>", lambda e: self.browse_file())
         title_label.config(cursor="hand2")
         
-        desc_label = tk.Label(zone_content, text="支持 .xlsx, .csv 格式，单次处理上限 10,000 行", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#6B7280")
-        desc_label.pack(pady=(6, 0))
+        desc_label = tk.Label(zone_content, text="支持 .xlsx, .csv 格式，单次处理上限 10,000 行", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#6B7280")
+        desc_label.pack(pady=(8, 0))
         desc_label.bind("<Button-1>", lambda e: self.browse_file())
         desc_label.config(cursor="hand2")
         
-        self.file_name_label = tk.Label(zone_content, text="", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#2563EB")
-        self.file_name_label.pack(pady=(8, 0))
+        self.file_name_label = tk.Label(zone_content, text="", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#2563EB")
+        self.file_name_label.pack(pady=(12, 0))
         
         action_zone = tk.Frame(upload_inner, bg="#2563EB", width=320)
         action_zone.pack(side=tk.RIGHT, fill=tk.BOTH)
@@ -547,8 +547,14 @@ class AllocationApp:
         )
         if file_path:
             self.file_path = file_path
-            self.file_name_label.config(text=os.path.basename(file_path))
-            self.update_status(f"✓ 文件已选择: {os.path.basename(file_path)}", "#2563EB")
+            file_name = os.path.basename(file_path)
+            file_dir = os.path.dirname(file_path)
+            if len(file_name) > 40:
+                display_name = file_name[:20] + "..." + file_name[-15:]
+            else:
+                display_name = file_name
+            self.file_name_label.config(text=f"📄 {display_name}")
+            self.update_status(f"✓ 文件已选择: {file_name}", "#2563EB")
             self.run_btn.config(state=tk.NORMAL, cursor="hand2")
     
     def update_status(self, text, color="#6B7280"):
