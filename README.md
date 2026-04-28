@@ -31,7 +31,7 @@
   - `SKC`：商品分类标识
   - `需分配数量`：需要分配的商品数量
 
-## 加单分配逻辑 v2.0
+## 加单分配逻辑 v2.3
 
 系统采用以下分配策略，按优先级执行：
 
@@ -161,18 +161,18 @@
 
 | 平台 | 文件名称 | 直接下载链接 |
 | --- | --- | --- |
-| Windows | `加单分配系统_v3_Windows.exe` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Windows.exe) |
-| macOS (ARM) | `加单分配系统_v3_Mac-ARM.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Mac-ARM.zip) |
-| macOS (Intel) | `加单分配系统_v3_Mac-Intel.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Mac-Intel.zip) |
-| Linux | `加单分配系统_v3_Linux` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Linux) |
+| Windows | `加单分配系统_v3_v0.0.5_Windows.exe` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.5/加单分配系统_v3_v0.0.5_Windows.exe) |
+| macOS (ARM) | `加单分配系统_v3_v0.0.5_Mac-ARM.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.5/加单分配系统_v3_v0.0.5_Mac-ARM.zip) |
+| macOS (Intel) | `加单分配系统_v3_v0.0.5_Mac-Intel.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.5/加单分配系统_v3_v0.0.5_Mac-Intel.zip) |
+| Linux | `加单分配系统_v3_v0.0.5_Linux` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.5/加单分配系统_v3_v0.0.5_Linux) |
 
 ### 选择正确的版本
 
-- **Windows 用户**：下载 `加单分配系统_v3_Windows.exe`
+- **Windows 用户**：下载 `加单分配系统_v3_v0.0.5_Windows.exe`
 - **Mac 用户**：
-  - Apple Silicon（M1/M2/M3芯片）：下载 `加单分配系统_v3_Mac-ARM.app`
-  - Intel 芯片：下载 `加单分配系统_v3_Mac-Intel.app`
-- **Linux 用户**：下载 `加单分配系统_v3_Linux`
+  - Apple Silicon（M1/M2/M3芯片）：下载 `加单分配系统_v3_v0.0.5_Mac-ARM.app`
+  - Intel 芯片：下载 `加单分配系统_v3_v0.0.5_Mac-Intel.app`
+- **Linux 用户**：下载 `加单分配系统_v3_v0.0.5_Linux`
 
 ## 使用说明
 
@@ -198,7 +198,7 @@
 
 ## 版本信息
 
-- 当前版本：0.0.4
+- 当前版本：0.0.5
 - 支持平台：Windows、macOS（ARM/Intel）、Linux
 
 ## 功能验证
@@ -289,7 +289,8 @@
 
 ### 设计风格
 
-- **配色方案**：极简黑白灰配色，主背景白色(#FFFFFF)，次要背景浅灰(#F7F7F7)，边框极浅灰(#E5E5E5)
+- **配色方案**：现代化渐变配色，主背景淡灰色(#F5F7FA)，卡片白色(#FFFFFF)，边框淡灰色(#E5E7EB)
+- **阶段颜色**：各阶段采用不同主题色（蓝色、绿色、橙色、紫色）便于识别
 - **交互响应**：按钮支持悬停、按下状态变化，状态区根据操作结果显示不同颜色和图标
 - **卡片布局**：各功能区域采用卡片式设计，层次清晰
 
@@ -297,18 +298,18 @@
 
 | 状态 | 背景色 | 文字色 | 说明 |
 | --- | --- | --- | --- |
-| 可点击 | #1A1A1A（黑色） | 白色 | 可以点击执行操作 |
-| 悬停 | #333333（深灰色） | 白色 | 鼠标悬停在按钮上 |
-| 不可点击 | #E5E5E5（浅灰色） | #9B9B9B（中灰色） | 操作不可用 |
+| 可点击 | #2563EB（蓝色） | 白色 | 可以点击执行操作 |
+| 悬停 | #1E40AF（深蓝色） | 白色 | 鼠标悬停在按钮上 |
+| 不可点击 | #D1D5DB（浅灰色） | #9CA3AF（中灰色） | 操作不可用 |
 
 ### 状态指示
 
 | 状态 | 图标 | 颜色 | 说明 |
 | --- | --- | --- | --- |
-| 等待 | ○ | #6B6B6B（中灰色） | 等待用户操作 |
-| 处理中 | ● | #FF9800（橙色） | 正在执行任务 |
-| 成功 | ✓ | #4CAF50（绿色） | 操作完成 |
-| 错误 | ✗ | #F44336（红色） | 操作失败 |
+| 等待 | ○ | #9CA3AF（中灰色） | 等待用户操作 |
+| 处理中 | ● | #D97706（橙色） | 正在执行任务 |
+| 成功 | ✓ | #059669（绿色） | 操作完成 |
+| 错误 | ✗ | #DC2626（红色） | 操作失败 |
 
 ## 注意事项
 
