@@ -32,7 +32,13 @@ class AllocationApp:
             
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
             
-            self.config = None
+            # 初始化配置
+            try:
+                self.config = load_config()
+            except:
+                from allocation_core import DEFAULT_CONFIG
+                self.config = DEFAULT_CONFIG
+            
             self.file_path = None
             self.result_df = None
             self.reason_df = None
@@ -44,14 +50,36 @@ class AllocationApp:
                 ("#F5F3FF", "#7C3AED"),
             ]
             
-            self.stage_list = [
+            # 从配置中获取阶段顺序或使用默认
+            stage_names = {
+                "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+            }
+            
+            default_stage_list = [
                 ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
                 ("sales_match", "销量匹配", "依据历史销速加权分配"),
                 ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-                ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
             ]
             
+            remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+            
+            # 构建阶段列表
+            config_priority = self.config.get('allocation_config', {}).get('stage_priority', [])
+            self.stage_list = []
+            for stage_id in config_priority:
+                if stage_id in stage_names:
+                    self.stage_list.append(stage_names[stage_id])
+            
+            # 如果配置中阶段不完整，用默认补充
+            if len(self.stage_list) != 3:
+                self.stage_list = default_stage_list.copy()
+            
+            self.stage_list.append(remaining_stage)
+            
             self.stage_frames = []
+            self.stage_vars = []  # 用于存储下拉框变量
             
             self.setup_styles()
             self.create_widgets()
@@ -363,6 +391,12 @@ class AllocationApp:
             new_stage_list.extend(self.stage_list[3:])
             self.stage_list = new_stage_list
             
+            # 同步更新到self.config
+            new_priority = [stage[0] for stage in self.stage_list[:3]]
+            if 'allocation_config' not in self.config:
+                self.config['allocation_config'] = {}
+            self.config['allocation_config']['stage_priority'] = new_priority
+            
             # 重新渲染阶段展示
             for widget in self.stages_container.winfo_children():
                 widget.destroy()
@@ -380,12 +414,18 @@ class AllocationApp:
     
     def reset_stage_order(self):
         # 恢复默认顺序
-        self.stage_list = [
+        default_stage_list = [
             ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
             ("sales_match", "销量匹配", "依据历史销速加权分配"),
             ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
             ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
         ]
+        self.stage_list = default_stage_list.copy()
+        
+        # 同步更新到self.config
+        if 'allocation_config' not in self.config:
+            self.config['allocation_config'] = {}
+        self.config['allocation_config']['stage_priority'] = ["broken_size_fix", "sales_match", "sell_through_priority"]
         
         # 重置下拉框
         for i, var in enumerate(self.stage_vars):
