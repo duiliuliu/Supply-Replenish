@@ -148,10 +148,10 @@
 
 | 平台 | 文件名称 | 直接下载链接 |
 | --- | --- | --- |
-| Windows | `加单分配系统_v3_Windows.exe` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Windows.exe) |
-| macOS (ARM) | `加单分配系统_v3_Mac-ARM.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Mac-ARM.zip) |
-| macOS (Intel) | `加单分配系统_v3_Mac-Intel.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Mac-Intel.zip) |
-| Linux | `加单分配系统_v3_Linux` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/download/v0.0.4/加单分配系统_v3_Linux) |
+| Windows | `加单分配系统_v3_Windows.exe` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/latest/download/加单分配系统_v3_Windows.exe) |
+| macOS (ARM) | `加单分配系统_v3_Mac-ARM.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/latest/download/加单分配系统_v3_Mac-ARM.zip) |
+| macOS (Intel) | `加单分配系统_v3_Mac-Intel.zip` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/latest/download/加单分配系统_v3_Mac-Intel.zip) |
+| Linux | `加单分配系统_v3_Linux` | [下载](https://github.com/duiliuliu/Supply-Replenish/releases/latest/download/加单分配系统_v3_Linux) |
 
 ### 选择正确的版本
 
