@@ -9,7 +9,7 @@ class AllocationApp:
     def __init__(self, root):
         self.root = root
         self.root.title("加单商品分配系统 v3")
-        self.root.geometry("900x750")
+        self.root.geometry("950x900")
         
         self.file_path = None
         self.result_df = None
@@ -22,26 +22,88 @@ class AllocationApp:
         title_label = tk.Label(self.root, text="加单商品分配系统", font=("Arial", 18, "bold"))
         title_label.pack(pady=10)
         
-        # 分配逻辑说明区
-        logic_frame = tk.Frame(self.root, bg="#F5F5F5", relief=tk.SUNKEN, borderwidth=2)
-        logic_frame.pack(pady=10, padx=20, fill=tk.X)
+        # 分配逻辑说明区 - 卡片式设计
+        logic_section = tk.LabelFrame(self.root, text="📊 分配逻辑说明", font=("Arial", 12, "bold"), 
+                                      bg="#FAFAFA", fg="#333", padx=10, pady=10)
+        logic_section.pack(pady=10, padx=20, fill=tk.X)
         
-        tk.Label(logic_frame, text="分配逻辑说明", font=("Arial", 12, "bold"), bg="#F5F5F5").pack(pady=(5, 0))
+        # 创建4个阶段卡片
+        stages = [
+            {
+                "priority": "P1",
+                "name": "断码修复",
+                "color": "#E3F2FD",
+                "border_color": "#1976D2",
+                "description": "确保卖场达到最低库存要求",
+                "details": "SA/A级卖场：核心尺码(160/165)至少2件，非核心尺码至少1件\n其他等级：核心尺码至少1件"
+            },
+            {
+                "priority": "P2",
+                "name": "销量匹配", 
+                "color": "#E8F5E9",
+                "border_color": "#388E3C",
+                "description": "根据30天销量分配商品",
+                "details": "确保库存数量与销量相匹配，保持合理库存水平"
+            },
+            {
+                "priority": "P3",
+                "name": "销尽率优先",
+                "color": "#FFF8E1",
+                "border_color": "#F57C00",
+                "description": "按销尽率降序分配（仅限B/C/D/OL级）",
+                "details": "销尽率 = 销量 / (销量+库存)，优先分配给销尽率高的卖场"
+            },
+            {
+                "priority": "P4",
+                "name": "剩余分配",
+                "color": "#FCE4EC",
+                "border_color": "#C2185B",
+                "description": "分配剩余商品给所有卖场",
+                "details": "确保每个卖场单个尺码库存不超过15件"
+            }
+        ]
         
-        logic_text = tk.Text(logic_frame, height=8, width=80, wrap=tk.WORD, bg="#F5F5F5", 
-                             font=("Arial", 10), relief=tk.FLAT, state=tk.DISABLED)
-        logic_text.pack(padx=10, pady=5)
+        # 使用Frame来布局卡片
+        cards_frame = tk.Frame(logic_section, bg="#FAFAFA")
+        cards_frame.pack(fill=tk.X)
         
-        logic_content = """1. 断码修复（最高优先级）：确保卖场达到最低库存要求（SA/A级核心2件，非核心1件；其他等级核心1件）
-2. 销量匹配：根据30天销量，为每个卖场分配相应数量的商品
-3. 销尽率优先：对B/C/D/OL级卖场，按销尽率（销量/总库存）降序排序优先分配
-4. 剩余分配：将剩余商品分配给所有卖场，确保每个卖场的单个尺码库存不超过15件
-
-注意：只要还有剩余待分配数量，就会继续执行下一阶段，可能有多个分配原因叠加。"""
+        for stage in stages:
+            card = tk.Frame(cards_frame, bg=stage["color"], relief=tk.SOLID, 
+                           borderwidth=2, highlightbackground=stage["border_color"], 
+                           highlightthickness=1)
+            card.pack(fill=tk.X, pady=5, padx=5)
+            
+            # 优先级标签
+            priority_label = tk.Label(card, text=stage["priority"], 
+                                     font=("Arial", 14, "bold"), bg=stage["border_color"], 
+                                     fg="white", width=4, padx=5)
+            priority_label.pack(side=tk.LEFT)
+            
+            # 内容区域
+            content_frame = tk.Frame(card, bg=stage["color"])
+            content_frame.pack(side=tk.LEFT, padx=10, fill=tk.X)
+            
+            # 名称和描述
+            name_label = tk.Label(content_frame, text=stage["name"], 
+                                  font=("Arial", 11, "bold"), bg=stage["color"], fg="#333")
+            name_label.pack(anchor=tk.W)
+            
+            desc_label = tk.Label(content_frame, text=stage["description"], 
+                                  font=("Arial", 10), bg=stage["color"], fg="#666")
+            desc_label.pack(anchor=tk.W, pady=(2, 0))
+            
+            # 详细说明
+            details_label = tk.Label(content_frame, text=stage["details"], 
+                                     font=("Arial", 9), bg=stage["color"], fg="#888",
+                                     justify=tk.LEFT, wraplength=700)
+            details_label.pack(anchor=tk.W, pady=(2, 5))
         
-        logic_text.config(state=tk.NORMAL)
-        logic_text.insert(tk.END, logic_content)
-        logic_text.config(state=tk.DISABLED)
+        # 提示信息
+        hint_frame = tk.Frame(logic_section, bg="#E3F2FD")
+        hint_frame.pack(fill=tk.X, pady=(10, 0), padx=5)
+        hint_label = tk.Label(hint_frame, text="💡 提示：分配按优先级顺序执行，如有剩余数量会继续下一阶段，可能有多个分配原因叠加",
+                              font=("Arial", 9, "italic"), bg="#E3F2FD", fg="#1976D2")
+        hint_label.pack(padx=10, pady=5)
         
         # 文件选择区
         file_frame = tk.Frame(self.root)
