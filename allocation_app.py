@@ -1,4 +1,4 @@
-# 加单商品分配系统 v2.4
+# 加单商品分配系统 v2.5
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
@@ -26,9 +26,9 @@ class AllocationApp:
         try:
             self.root = root
             self.root.title("加单商品分配系统")
-            self.root.geometry("1100x980")
+            self.root.geometry("1100x1050")
             self.root.configure(bg="#F5F7FA")
-            self.root.minsize(950, 820)
+            self.root.minsize(950, 850)
             
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
             
@@ -51,6 +51,9 @@ class AllocationApp:
                 ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
             ]
             
+            self.drag_data = {"index": -1, "item": None, "y": 0}
+            self.stage_frames = []
+            
             self.setup_styles()
             self.create_widgets()
             
@@ -72,8 +75,6 @@ class AllocationApp:
         
         style.configure("Title.TLabel", font=("SF Pro Display", 24, "bold"), background="#F5F7FA", foreground="#1F2937")
         style.configure("Subtitle.TLabel", font=("SF Pro Display", 14), background="#F5F7FA", foreground="#6B7280")
-        style.configure("Section.TLabelframe", font=("SF Pro Display", 15, "bold"), background="#F5F7FA", borderwidth=0)
-        style.configure("Section.TLabelframe.Label", font=("SF Pro Display", 15, "bold"), foreground="#1F2937", background="#F5F7FA")
         
         style.configure("Treeview", font=("SF Pro Display", 12), rowheight=32, background="#FFFFFF", foreground="#1F2937", borderwidth=0)
         style.configure("Treeview.Heading", font=("SF Pro Display", 12, "bold"), background="#F9FAFB", foreground="#374151", borderwidth=0, relief=tk.FLAT)
@@ -85,8 +86,8 @@ class AllocationApp:
         
         self.create_header(main_frame)
         self.create_config_section(main_frame)
-        self.create_file_upload_section(main_frame)
         self.create_logic_section(main_frame)
+        self.create_file_upload_section(main_frame)
         self.create_result_section(main_frame)
         self.create_status_bar(main_frame)
     
@@ -103,16 +104,12 @@ class AllocationApp:
         subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
         subtitle_label.pack(anchor=tk.W, pady=(4, 0))
         
-        version_label = tk.Label(header_frame, text="v2.4", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
+        version_label = tk.Label(header_frame, text="v2.5", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
         version_label.pack(side=tk.RIGHT)
     
-    def create_card_frame(self, parent, radius=8, shadow=True):
+    def create_card_frame(self, parent):
         card = tk.Frame(parent, bg="#FFFFFF")
         card.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
-        
-        if shadow:
-            card.config(borderwidth=1, relief=tk.FLAT)
-        
         return card
     
     def create_config_section(self, parent):
@@ -223,13 +220,13 @@ class AllocationApp:
     
     def save_config(self):
         config = {
-            "version": "2.4",
+            "version": "2.5",
             "allocation_config": {
                 "coverage_days": {},
                 "level_weights": {},
                 "safety_factors": {},
                 "min_target_inventory": {},
-                "stage_priority": ["broken_size_fix", "sales_match", "sell_through_priority"],
+                "stage_priority": [stage[0] for stage in self.stage_list[:3]],
                 "max_remaining_per_store": 10
             }
         }
@@ -249,6 +246,131 @@ class AllocationApp:
         self.config = config
         messagebox.showinfo("成功", "配置已保存!")
     
+    def create_logic_section(self, parent):
+        logic_card = self.create_card_frame(parent)
+        logic_card.pack(fill=tk.X, pady=(0, 16))
+        
+        self.logic_expanded = True
+        
+        header_frame = tk.Frame(logic_card, bg="#FFFFFF")
+        header_frame.pack(fill=tk.X, pady=14, padx=20)
+        header_frame.bind("<Button-1>", self.toggle_logic)
+        header_frame.config(cursor="hand2")
+        
+        self.logic_toggle = tk.Label(header_frame, text="▼", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#6B7280")
+        self.logic_toggle.pack(side=tk.RIGHT)
+        
+        icon_label = tk.Label(header_frame, text="📊", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
+        icon_label.pack(side=tk.LEFT)
+        
+        logic_title = tk.Label(header_frame, text="分配逻辑说明", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        logic_title.pack(side=tk.LEFT, padx=(8, 0))
+        
+        drag_hint = tk.Label(header_frame, text="(可拖拽调整前三个阶段顺序)", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#9CA3AF")
+        drag_hint.pack(side=tk.LEFT, padx=(12, 0))
+        
+        self.logic_content = tk.Frame(logic_card, bg="#FFFFFF")
+        self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
+        
+        self.create_logic_stages()
+    
+    def create_logic_stages(self):
+        self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
+        self.stages_container.pack(fill=tk.X)
+        
+        self.stage_frames = []
+        
+        for i, (stage_id, name, desc) in enumerate(self.stage_list):
+            self._create_stage_item(i, stage_id, name, desc)
+    
+    def _create_stage_item(self, idx, stage_id, name, desc):
+        bg_color, fg_color = self.stage_colors[idx]
+        
+        stage_frame = tk.Frame(self.stages_container, bg=bg_color, bd=1, relief=tk.FLAT)
+        stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
+        
+        if idx < 3:
+            stage_frame.bind("<ButtonPress-1>", lambda e, idx=idx: self._on_stage_press(e, idx))
+            stage_frame.bind("<B1-Motion>", lambda e, idx=idx: self._on_stage_drag(e, idx))
+            stage_frame.bind("<ButtonRelease-1>", lambda e, idx=idx: self._on_stage_release(e, idx))
+            stage_frame.config(cursor="grab", highlightbackground="#2563EB", highlightcolor="#2563EB", highlightthickness=2)
+        
+        stage_content = tk.Frame(stage_frame, bg=bg_color)
+        stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+        
+        num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
+        num_frame.pack(padx=8, pady=(0, 12))
+        num_frame.pack_propagate(False)
+        
+        num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg=fg_color)
+        num_label.pack(fill=tk.BOTH, expand=True)
+        
+        stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
+        stage_name_label.pack(pady=(0, 4))
+        
+        stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
+        stage_desc_label.pack()
+        
+        if idx < 3:
+            drag_label = tk.Label(stage_content, text="⋮⋮", font=("SF Pro Display", 10), bg=bg_color, fg="#9CA3AF")
+            drag_label.pack(pady=(8, 0))
+        
+        self.stage_frames.append((stage_id, stage_frame))
+        
+        if idx < 3:
+            arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=24)
+            arrow_frame.pack(side=tk.LEFT)
+            arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
+            arrow_label.pack(fill=tk.BOTH, expand=True)
+    
+    def _on_stage_press(self, event, index):
+        self.drag_data["index"] = index
+        self.drag_data["y"] = event.y_root
+        self.drag_data["item"] = self.stage_frames[index][1]
+        self.drag_data["item"].config(highlightbackground="#2563EB", highlightcolor="#2563EB", highlightthickness=3)
+        self.drag_data["item"].config(cursor="grabbing")
+    
+    def _on_stage_drag(self, event, index):
+        if self.drag_data["index"] == -1:
+            return
+        
+        delta_y = event.y_root - self.drag_data["y"]
+        if abs(delta_y) > 30:
+            direction = 1 if delta_y > 0 else -1
+            new_index = index + direction
+            
+            if 0 <= new_index < 3:
+                self.stage_list[index], self.stage_list[new_index] = self.stage_list[new_index], self.stage_list[index]
+                
+                for stage_id, widget in self.stage_frames:
+                    widget.pack_forget()
+                
+                for widget in self.stages_container.winfo_children():
+                    widget.destroy()
+                
+                self.stage_frames = []
+                
+                for i, (stage_id, name, desc) in enumerate(self.stage_list):
+                    self._create_stage_item(i, stage_id, name, desc)
+                
+                self.drag_data["index"] = new_index
+                self.drag_data["y"] = event.y_root
+    
+    def _on_stage_release(self, event, index):
+        if self.drag_data["item"]:
+            self.drag_data["item"].config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=2)
+            self.drag_data["item"].config(cursor="grab")
+        self.drag_data = {"index": -1, "item": None, "y": 0}
+    
+    def toggle_logic(self, event=None):
+        if self.logic_expanded:
+            self.logic_content.pack_forget()
+            self.logic_toggle.config(text="▶")
+        else:
+            self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
+            self.logic_toggle.config(text="▼")
+        self.logic_expanded = not self.logic_expanded
+    
     def create_file_upload_section(self, parent):
         upload_frame = tk.Frame(parent, bg="#F5F7FA")
         upload_frame.pack(fill=tk.X, pady=(0, 16))
@@ -256,7 +378,6 @@ class AllocationApp:
         upload_inner = tk.Frame(upload_frame, bg="#F5F7FA")
         upload_inner.pack(fill=tk.X)
         
-        # 文件上传区域
         file_zone = tk.Frame(upload_inner, bg="#FFFFFF", bd=2, relief=tk.DASHED)
         file_zone.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 16))
         file_zone.config(highlightbackground="#D1D5DB", highlightcolor="#D1D5DB", highlightthickness=1)
@@ -276,7 +397,6 @@ class AllocationApp:
         desc_label = tk.Label(zone_content, text="支持 .xlsx, .csv 格式，单次处理上限 10,000 行", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#6B7280")
         desc_label.pack(pady=(6, 0))
         
-        # 执行按钮区域
         action_zone = tk.Frame(upload_inner, bg="#2563EB", width=320)
         action_zone.pack(side=tk.RIGHT, fill=tk.BOTH)
         
@@ -302,55 +422,6 @@ class AllocationApp:
                                   cursor="arrow", state=tk.DISABLED, command=self.save_result)
         self.save_btn.pack()
     
-    def create_logic_section(self, parent):
-        logic_card = self.create_card_frame(parent)
-        logic_card.pack(fill=tk.X, pady=(0, 16))
-        
-        header_frame = tk.Frame(logic_card, bg="#FFFFFF")
-        header_frame.pack(fill=tk.X, pady=14, padx=20)
-        
-        icon_label = tk.Label(header_frame, text="📊", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
-        icon_label.pack(side=tk.LEFT)
-        
-        logic_title = tk.Label(header_frame, text="分配逻辑说明", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
-        logic_title.pack(side=tk.LEFT, padx=(8, 0))
-        
-        stages_frame = tk.Frame(logic_card, bg="#FFFFFF")
-        stages_frame.pack(fill=tk.X, padx=20, pady=(0, 14))
-        
-        stages = [
-            ("断码修复", "优先填充缺码关键SKU"),
-            ("销量匹配", "依据历史销速加权分配"),
-            ("销尽率优先", "高销尽门店获得补货权重"),
-            ("剩余分配", "尾量零散SKU随机填充")
-        ]
-        
-        for i, (name, desc) in enumerate(stages):
-            stage_frame = tk.Frame(stages_frame, bg="#F3F4F6", bd=1, relief=tk.FLAT)
-            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if i == 0 else 12, 0))
-            
-            stage_content = tk.Frame(stage_frame, bg="#F3F4F6")
-            stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
-            
-            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
-            num_frame.pack(padx=8, pady=(0, 12))
-            num_frame.pack_propagate(False)
-            
-            num_label = tk.Label(num_frame, text=str(i+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg="#2563EB")
-            num_label.pack(fill=tk.BOTH, expand=True)
-            
-            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg="#F3F4F6", fg="#1F2937")
-            stage_name_label.pack(pady=(0, 4))
-            
-            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg="#F3F4F6", fg="#6B7280")
-            stage_desc_label.pack()
-            
-            if i < 3:
-                arrow_frame = tk.Frame(stages_frame, bg="#FFFFFF", width=24)
-                arrow_frame.pack(side=tk.LEFT)
-                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
-                arrow_label.pack(fill=tk.BOTH, expand=True)
-    
     def create_result_section(self, parent):
         result_card = self.create_card_frame(parent)
         result_card.pack(fill=tk.BOTH, expand=True)
@@ -370,10 +441,6 @@ class AllocationApp:
         right_frame = tk.Frame(header_frame, bg="#FFFFFF")
         right_frame.pack(side=tk.RIGHT)
         
-        filter_btn = tk.Button(right_frame, text="筛选", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
-                               relief=tk.FLAT, padx=14, pady=6, cursor="hand2")
-        filter_btn.pack(side=tk.LEFT, padx=(0, 8))
-        
         export_btn = tk.Button(right_frame, text="导出清单", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
                                relief=tk.FLAT, padx=14, pady=6, cursor="hand2", command=self.save_result)
         export_btn.pack(side=tk.LEFT)
@@ -387,11 +454,6 @@ class AllocationApp:
         scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        
-        self.tree["columns"] = ("卖场", "货号", "当前库存", "预计销量(7d)", "库销比", "建议加单数", "状态")
-        for col in self.tree["columns"]:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=120, anchor="center")
     
     def create_status_bar(self, parent):
         status_frame = tk.Frame(parent, bg="#FFFFFF", bd=1, relief=tk.FLAT)
@@ -423,10 +485,12 @@ class AllocationApp:
             self.run_btn.config(state=tk.NORMAL, cursor="hand2")
             self.run_btn.bind("<Enter>", lambda e: self.run_btn.config(bg="#F3F4F6"))
             self.run_btn.bind("<Leave>", lambda e: self.run_btn.config(bg="#FFFFFF"))
+            self.update_status("文件已选择，点击执行开始分配", "info")
     
     def run_allocation(self):
         try:
-            self.update_status("处理中", "warning")
+            self.update_status("处理中...", "warning")
+            self.root.update()
             
             df_inventory = pd.read_excel(self.file_path, sheet_name="库存")
             df_sales = pd.read_excel(self.file_path, sheet_name="销售")
@@ -468,29 +532,16 @@ class AllocationApp:
             self.tree.delete(col)
         
         if self.result_df is not None and len(self.result_df) > 0:
-            sample_data = self.result_df.head(20)
+            columns = list(self.result_df.columns)
+            self.tree["columns"] = columns
             
-            for idx, row in sample_data.iterrows():
-                store_name = row['卖场']
-                sku = row.keys()[1] if len(row) > 1 else "N/A"
-                current_inv = row[sku] if sku in row else 0
-                
-                stock_ratio = 0.72
-                suggestion = current_inv + 10
-                status = self.get_status(stock_ratio)
-                
-                values = (store_name, sku, current_inv, 58, stock_ratio, suggestion, status)
+            for col in columns:
+                self.tree.heading(col, text=col)
+                self.tree.column(col, width=120, anchor="center")
+            
+            for idx, row in self.result_df.head(20).iterrows():
+                values = list(row)
                 self.tree.insert("", "end", values=values)
-    
-    def get_status(self, ratio):
-        if ratio < 0.5:
-            return "严重缺货"
-        elif ratio < 1.0:
-            return "断码预警"
-        elif ratio < 2.0:
-            return "常规补货"
-        else:
-            return "库存充沛"
     
     def save_result(self):
         if self.result_df is None:
