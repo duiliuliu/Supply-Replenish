@@ -55,18 +55,17 @@ def build_app():
         'allocation_app.py',
         '--name', app_name,
         '--windowed',
+        '--onefile',
         '--clean',
         '--noconfirm',
         '--hidden-import=allocation_core',
         '--add-data=allocation_config.json:.',
     ]
     
+    # 在Mac上添加图标支持
     if platform_name.startswith('Mac'):
-        pass  # Mac使用默认方式，--windowed会生成.app
-    elif platform_name == 'Windows':
-        args.append('--onefile')
-    else:
-        args.append('--onefile')
+        # 确保是--onefile模式，这样打包后只有单个.app
+        pass
     
     print('Starting build process...')
     print('Using arguments:', args)
@@ -85,17 +84,18 @@ def build_app():
         
         if platform_name.startswith('Mac'):
             app_path = os.path.join(dist_path, f'{app_name}.app')
-            app_dir_path = os.path.join(dist_path, app_name)
             print(f'\nChecking for app at: {app_path}')
-            print(f'Checking for directory at: {app_dir_path}')
             if os.path.exists(app_path):
                 print(f'✅ App bundle created successfully!')
-            elif os.path.exists(app_dir_path):
-                print(f'✅ Directory created successfully!')
             else:
-                print(f'⚠️ Warning: Expected output not found')
-                if os.path.exists(dist_path):
-                    print(f'Contents of dist: {os.listdir(dist_path)}')
+                print(f'⚠️ Warning: App not found, checking directory...')
+                app_dir_path = os.path.join(dist_path, app_name)
+                if os.path.exists(app_dir_path):
+                    print(f'✅ Directory created successfully!')
+                else:
+                    print(f'⚠️ Warning: Expected output not found')
+                    if os.path.exists(dist_path):
+                        print(f'Contents of dist: {os.listdir(dist_path)}')
         elif platform_name == 'Windows':
             exe_path = os.path.join(dist_path, f'{app_name}.exe')
             print(f'\nWindows version: {exe_path}')

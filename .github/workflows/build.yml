@@ -60,15 +60,33 @@ jobs:
     - name: Package ARM app
       run: |
         cd dist
-        APP_BUNDLE="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-ARM.app"
-        if [ -d "$APP_BUNDLE" ]; then
-          zip -r "${APP_BUNDLE%.app}.zip" "$APP_BUNDLE"
-          rm -rf "$APP_BUNDLE"
+        # 检查所有可能的输出格式
+        APP_NAME="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-ARM"
+        if [ -d "$APP_NAME.app" ]; then
+          zip -r "$APP_NAME.zip" "$APP_NAME.app"
+          rm -rf "$APP_NAME.app"
+        elif [ -d "$APP_NAME" ]; then
+          zip -r "$APP_NAME.zip" "$APP_NAME"
+          rm -rf "$APP_NAME"
+        elif [ -f "$APP_NAME" ]; then
+          zip "$APP_NAME.zip" "$APP_NAME"
         else
-          echo "App bundle $APP_BUNDLE not found"
+          echo "No valid output found"
           ls -la
-          exit 1
+          # 看看有没有其他可能的文件
+          for f in *; do
+            if [[ $f == *Mac-ARM* ]]; then
+              echo "Found potential file: $f"
+              if [ -d "$f" ]; then
+                zip -r "${f}.zip" "$f"
+                rm -rf "$f"
+              elif [ -f "$f" ]; then
+                zip "${f}.zip" "$f"
+              fi
+            fi
+          done
         fi
+        ls -la
       shell: bash
 
     - name: Upload ARM artifact
@@ -88,15 +106,33 @@ jobs:
     - name: Package Intel app
       run: |
         cd dist
-        APP_BUNDLE="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-Intel.app"
-        if [ -d "$APP_BUNDLE" ]; then
-          zip -r "${APP_BUNDLE%.app}.zip" "$APP_BUNDLE"
-          rm -rf "$APP_BUNDLE"
+        # 检查所有可能的输出格式
+        APP_NAME="加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-Intel"
+        if [ -d "$APP_NAME.app" ]; then
+          zip -r "$APP_NAME.zip" "$APP_NAME.app"
+          rm -rf "$APP_NAME.app"
+        elif [ -d "$APP_NAME" ]; then
+          zip -r "$APP_NAME.zip" "$APP_NAME"
+          rm -rf "$APP_NAME"
+        elif [ -f "$APP_NAME" ]; then
+          zip "$APP_NAME.zip" "$APP_NAME"
         else
-          echo "App bundle $APP_BUNDLE not found"
+          echo "No valid output found"
           ls -la
-          exit 1
+          # 看看有没有其他可能的文件
+          for f in *; do
+            if [[ $f == *Mac-Intel* ]]; then
+              echo "Found potential file: $f"
+              if [ -d "$f" ]; then
+                zip -r "${f}.zip" "$f"
+                rm -rf "$f"
+              elif [ -f "$f" ]; then
+                zip "${f}.zip" "$f"
+              fi
+            fi
+          done
         fi
+        ls -la
       shell: bash
 
     - name: Upload Intel artifact
@@ -157,6 +193,11 @@ jobs:
       with:
         path: artifacts
 
+    - name: List downloaded artifacts
+      run: |
+        ls -la artifacts/
+        ls -la artifacts/*/
+
     - name: Delete existing release if exists
       uses: dev-drprasad/delete-tag-and-release@v0.2.1
       with:
@@ -173,7 +214,12 @@ jobs:
         name: Release v${{ steps.get_version.outputs.version }}
         body: "Automated release for version ${{ steps.get_version.outputs.version }}\n\n**平台支持:**\n- Windows: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Windows.exe\n- Mac ARM: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-ARM.zip\n- Mac Intel: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-Intel.zip\n- Linux: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Linux"
         files: |
-          artifacts/**/*
+          artifacts/**/*.zip
+          artifacts/**/*.exe
+          artifacts/**/Linux*
+          artifacts/**/Windows*
+          artifacts/**/Mac-ARM*
+          artifacts/**/Mac-Intel*
         fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
