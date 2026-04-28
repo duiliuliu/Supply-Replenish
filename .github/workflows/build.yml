@@ -20,7 +20,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pyinstaller
+        pip install pyinstaller toml
 
     - name: Build application
       run: python pyinstaller_build.py
@@ -45,7 +45,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pyinstaller
+        pip install pyinstaller toml
 
     - name: Build ARM version
       run: python pyinstaller_build.py
@@ -53,8 +53,9 @@ jobs:
     - name: Package ARM app
       run: |
         cd dist
-        zip -r "加单分配系统_v3_Mac-ARM.zip" "加单分配系统_v3_Mac-ARM.app"
-        rm -rf "加单分配系统_v3_Mac-ARM.app"
+        APP_NAME=$(ls -1 *.app | head -1)
+        zip -r "${APP_NAME%.app}.zip" "$APP_NAME"
+        rm -rf "$APP_NAME"
       shell: bash
 
     - name: Upload ARM artifact
@@ -74,8 +75,9 @@ jobs:
     - name: Package Intel app
       run: |
         cd dist
-        zip -r "加单分配系统_v3_Mac-Intel.zip" "加单分配系统_v3_Mac-Intel.app"
-        rm -rf "加单分配系统_v3_Mac-Intel.app"
+        APP_NAME=$(ls -1 *.app | head -1)
+        zip -r "${APP_NAME%.app}.zip" "$APP_NAME"
+        rm -rf "$APP_NAME"
       shell: bash
 
     - name: Upload Intel artifact
@@ -98,7 +100,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pyinstaller
+        pip install pyinstaller toml
 
     - name: Build application
       run: python pyinstaller_build.py
@@ -150,7 +152,7 @@ jobs:
       with:
         tag_name: v${{ steps.get_version.outputs.version }}
         name: Release v${{ steps.get_version.outputs.version }}
-        body: "Automated release for version ${{ steps.get_version.outputs.version }}\n\n**平台支持:**\n- Windows: 加单分配系统_v3_Windows.exe\n- Mac ARM: 加单分配系统_v3_Mac-ARM.app\n- Mac Intel: 加单分配系统_v3_Mac-Intel.app\n- Linux: 加单分配系统_v3_Linux"
+        body: "Automated release for version ${{ steps.get_version.outputs.version }}\n\n**平台支持:**\n- Windows: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Windows.exe\n- Mac ARM: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-ARM.app\n- Mac Intel: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Mac-Intel.app\n- Linux: 加单分配系统_v3_v${{ steps.get_version.outputs.version }}_Linux"
         files: |
           artifacts/**/*
         fail_on_unmatched_files: false

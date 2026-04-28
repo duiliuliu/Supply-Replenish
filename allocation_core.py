@@ -29,10 +29,24 @@ DEFAULT_CONFIG = {
 }
 
 def load_config():
-    config_path = os.path.join(os.path.dirname(__file__), 'allocation_config.json')
-    if os.path.exists(config_path):
-        with open(config_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    import sys
+    
+    config_paths = []
+    
+    if getattr(sys, 'frozen', False):
+        config_paths.append(os.path.join(sys._MEIPASS, 'allocation_config.json'))
+        config_paths.append(os.path.join(os.path.dirname(sys.executable), 'allocation_config.json'))
+    
+    config_paths.append(os.path.join(os.path.dirname(__file__), 'allocation_config.json'))
+    
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f'Warning: Error reading config from {config_path}: {e}')
+    
     return DEFAULT_CONFIG
 
 def get_30day_sales(df_sales, sku, store_code):
