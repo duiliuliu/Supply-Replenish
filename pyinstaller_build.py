@@ -13,7 +13,18 @@ def get_platform_name():
     if system == 'windows':
         return 'Windows'
     elif system == 'darwin':
-        return 'Mac'
+        # 检测 Mac 架构，优先使用环境变量
+        target_arch = os.environ.get('PYINSTALLER_TARGET_ARCH')
+        if target_arch == 'x86_64':
+            return 'Mac-Intel'
+        elif target_arch == 'arm64':
+            return 'Mac-ARM'
+        # 自动检测
+        machine = platform.machine().lower()
+        if machine in ['arm64', 'aarch64']:
+            return 'Mac-ARM'
+        else:
+            return 'Mac-Intel'
     elif system == 'linux':
         return 'Linux'
     return system.capitalize()

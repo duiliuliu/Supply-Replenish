@@ -47,6 +47,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
     
     # 初始化分配结果
     allocation_result = defaultdict(lambda: defaultdict(int))
+    allocation_reasons = defaultdict(lambda: defaultdict(str))
     
     # 对每个SKU执行分配
     for sku_info in skus:
@@ -101,6 +102,10 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',断码修复({to_allocate})'
+                    else:
+                        allocation_reasons[store][sku] = f'断码修复({to_allocate})'
         
         # 2. 销量匹配
         for store in stores_sorted:
@@ -117,6 +122,10 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',销量匹配({to_allocate})'
+                    else:
+                        allocation_reasons[store][sku] = f'销量匹配({to_allocate})'
         
         # 3. B/C/D/OL级按销尽率降序
         bc_stores_sorted = []
@@ -139,6 +148,10 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',销尽率优先({to_allocate})'
+                    else:
+                        allocation_reasons[store][sku] = f'销尽率优先({to_allocate})'
         
         # 4. 剩余分配
         for store in stores_sorted:
@@ -153,14 +166,30 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order):
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
+                    if allocation_reasons[store][sku]:
+                        allocation_reasons[store][sku] += f',剩余分配({to_allocate})'
+                    else:
+                        allocation_reasons[store][sku] = f'剩余分配({to_allocate})'
     
-    return allocation_result, stores_sorted, skus
+    return allocation_result, allocation_reasons, stores_sorted, skus
 
-def generate_result_dataframe(allocation_result, stores_sorted, skus):
+def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus):
+    # 生成分配数量的DataFrame
     data = []
     for store in stores_sorted:
         row = {'卖场': store}
         for sku_info in skus:
             row[sku_info['sku']] = allocation_result[store][sku_info['sku']]
         data.append(row)
-    return pd.DataFrame(data)
+    df_quantity = pd.DataFrame(data)
+    
+    # 生成分配原因的DataFrame
+    reason_data = []
+    for store in stores_sorted:
+        row = {'卖场': store}
+        for sku_info in skus:
+            row[sku_info['sku']] = allocation_reasons[store][sku_info['sku']]
+        reason_data.append(row)
+    df_reason = pd.DataFrame(reason_data)
+    
+    return df_quantity, df_reason

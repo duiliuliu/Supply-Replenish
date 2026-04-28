@@ -6,12 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ windows-latest, macos-latest, ubuntu-latest ]
-
+  build-windows:
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
 
@@ -32,11 +28,75 @@ jobs:
     - name: Upload build artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.os }}-build
+        name: Windows-build
+        path: dist/
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build ARM version
+      run: python pyinstaller_build.py
+
+    - name: Upload ARM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Mac-ARM-build
+        path: dist/
+
+    - name: Clean build directory
+      run: rm -rf dist build *.spec
+
+    - name: Build Intel version
+      run: python pyinstaller_build.py
+      env:
+        PYINSTALLER_TARGET_ARCH: x86_64
+
+    - name: Upload Intel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Mac-Intel-build
+        path: dist/
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build application
+      run: python pyinstaller_build.py
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Linux-build
         path: dist/
 
   release:
-    needs: build
+    needs: [build-windows, build-mac, build-linux]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     steps:
@@ -62,15 +122,24 @@ jobs:
       with:
         path: artifacts
 
-    - name: Create or update release
+    - name: Delete existing release if exists
+      uses: dev-drprasad/delete-tag-and-release@v0.2.1
+      with:
+        delete_release: true
+        tag_name: v${{ steps.get_version.outputs.version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+
+    - name: Create new release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ steps.get_version.outputs.version }}
         name: Release v${{ steps.get_version.outputs.version }}
-        body: "Automated release for version ${{ steps.get_version.outputs.version }}"
+        body: "Automated release for version ${{ steps.get_version.outputs.version }}\n\n**平台支持:**\n- Windows: 加单分配系统_v3_Windows.exe\n- Mac ARM: 加单分配系统_v3_Mac-ARM.app\n- Mac Intel: 加单分配系统_v3_Mac-Intel.app\n- Linux: 加单分配系统_v3_Linux"
         files: |
           artifacts/**/*
-        overwrite: true
+        fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
