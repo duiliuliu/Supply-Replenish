@@ -390,7 +390,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
         traceback.print_exc()
         return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
 
-def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None):
+def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None, stage_order=None):
     try:
         data = []
         for store in stores_sorted:
@@ -401,6 +401,14 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
         df_quantity = pd.DataFrame(data)
         
         reason_data = []
+        
+        if stage_order and len(stage_order) > 0:
+            order_str = ' → '.join(stage_order)
+            header_row = {'卖场': f'【分配逻辑顺序: {order_str}】', '卖场等级': ''}
+            for sku_info in skus:
+                header_row[sku_info['sku']] = ''
+            reason_data.append(header_row)
+        
         for store in stores_sorted:
             level = store_level_map.get(store, '未知') if store_level_map else '未知'
             row = {'卖场': store, '卖场等级': level}
