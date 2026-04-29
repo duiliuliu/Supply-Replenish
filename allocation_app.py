@@ -13,7 +13,7 @@ class AllocationApp:
     def __init__(self):
         try:
             self.root = tk.Tk()
-            self.root.title("加单商品分配系统 v2.5")
+            self.root.title("加单商品分配系统 v2.6")
             self.root.geometry("1100x900")
             self.root.minsize(1000, 800)
             self.root.configure(bg="#F5F7FA")
@@ -129,7 +129,7 @@ class AllocationApp:
         subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
         subtitle_label.pack(anchor=tk.W, pady=(4, 0))
         
-        version_label = tk.Label(header_frame, text="v2.5", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
+        version_label = tk.Label(header_frame, text="v2.6", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
         version_label.pack(side=tk.RIGHT)
     
     def create_card_frame(self, parent):
@@ -248,7 +248,7 @@ class AllocationApp:
     
     def save_config(self):
         config = {
-            "version": "2.5",
+            "version": "2.6",
             "updated_at": "2026-04-28",
             "allocation_config": {
                 "coverage_days": {},
