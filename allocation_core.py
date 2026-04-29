@@ -3,10 +3,50 @@ import pandas as pd
 import json
 import os
 import sys
+import tomllib
 from collections import defaultdict
 
+def get_version():
+    """从 pyproject.toml 读取版本号"""
+    try:
+        pyproject_paths = []
+        
+        if getattr(sys, 'frozen', False):
+            pyproject_paths.append(os.path.join(sys._MEIPASS, 'pyproject.toml'))
+            if sys.platform == 'darwin':
+                content_path = os.path.dirname(sys.executable)
+                pyproject_paths.append(os.path.join(content_path, 'pyproject.toml'))
+            else:
+                pyproject_paths.append(os.path.join(os.path.dirname(sys.executable), 'pyproject.toml'))
+        
+        pyproject_paths.append('pyproject.toml')
+        
+        try:
+            script_path = os.path.dirname(os.path.abspath(__file__))
+            pyproject_paths.append(os.path.join(script_path, 'pyproject.toml'))
+        except:
+            pass
+        
+        for pyproject_path in pyproject_paths:
+            try:
+                if os.path.exists(pyproject_path):
+                    with open(pyproject_path, 'rb') as f:
+                        data = tomllib.load(f)
+                        version = data.get('project', {}).get('version', '2.6.0')
+                        print(f'Loaded version from {pyproject_path}: {version}')
+                        return version
+            except Exception as e:
+                continue
+        
+        return '2.6.0'
+    except Exception as e:
+        print(f'Error reading version: {e}')
+        return '2.6.0'
+
+VERSION = get_version()
+
 DEFAULT_CONFIG = {
-    "version": "2.6.0",
+    "version": VERSION,
     "allocation_config": {
         "coverage_days": {
             "SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14

@@ -7,7 +7,7 @@ import os
 import sys
 import traceback
 import json
-from allocation_core import allocate_add_order, generate_result_dataframe, DEFAULT_CONFIG, load_config
+from allocation_core import allocate_add_order, generate_result_dataframe, DEFAULT_CONFIG, load_config, VERSION
 
 class AllocationApp:
     def __init__(self):
@@ -17,7 +17,7 @@ class AllocationApp:
             except:
                 self.config = DEFAULT_CONFIG
             
-            self.version = self.config.get("version", DEFAULT_CONFIG.get("version", "2.6.0"))
+            self.version = VERSION
             
             self.root = tk.Tk()
             self.root.title(f"加单商品分配系统 v{self.version}")
