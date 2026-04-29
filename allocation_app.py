@@ -119,6 +119,35 @@ class AllocationApp:
         self.create_result_section(scrollable_frame)
         self.create_status_bar(scrollable_frame)
     
+    def safe_messagebox(self, msg_type, title, message):
+        """安全显示消息框，处理Tk上下文问题"""
+        try:
+            if not self.root:
+                return
+            
+            self.root.update_idletasks()
+            
+            if msg_type == 'info':
+                messagebox.showinfo(title, message)
+            elif msg_type == 'warning':
+                messagebox.showwarning(title, message)
+            elif msg_type == 'error':
+                messagebox.showerror(title, message)
+        except Exception as e:
+            print(f"Messagebox error: {e}")
+            try:
+                root = tk.Tk()
+                root.withdraw()
+                if msg_type == 'info':
+                    messagebox.showinfo(title, message)
+                elif msg_type == 'warning':
+                    messagebox.showwarning(title, message)
+                elif msg_type == 'error':
+                    messagebox.showerror(title, message)
+                root.destroy()
+            except:
+                pass
+    
     def create_header(self, parent):
         header_frame = tk.Frame(parent, bg="#F5F7FA")
         header_frame.pack(fill=tk.X, pady=(0, 20))
@@ -142,7 +171,9 @@ class AllocationApp:
     
     def create_config_section(self, parent):
         config_card = self.create_card_frame(parent)
-        config_card.pack(fill=tk.X, pady=(0, 16))
+        config_card.pack(fill=tk.X, expand=True, pady=(0, 16))
+        config_card.pack_propagate(False)
+        config_card.grid_columnconfigure(0, weight=1)
         
         self.config_expanded = True
         
@@ -282,7 +313,9 @@ class AllocationApp:
     
     def create_logic_section(self, parent):
         logic_card = self.create_card_frame(parent)
-        logic_card.pack(fill=tk.X, pady=(0, 16))
+        logic_card.pack(fill=tk.X, expand=True, pady=(0, 16))
+        logic_card.pack_propagate(False)
+        logic_card.grid_columnconfigure(0, weight=1)
         
         self.logic_expanded = True
         
@@ -396,14 +429,14 @@ class AllocationApp:
             
             # 验证选择完整性
             if len(set(selected_names)) != 3:
-                messagebox.showwarning("提示", "请确保每个阶段只选择一次！")
+                self.safe_messagebox('warning', "提示", "请确保每个阶段只选择一次！")
                 return
             
             # 验证所有选择都有效
             all_valid_names = ["断码修复", "销量匹配", "销尽率优先"]
             for name in selected_names:
                 if name not in all_valid_names:
-                    messagebox.showerror("错误", f"无效的阶段名称: {name}")
+                    self.safe_messagebox('error', "错误", f"无效的阶段名称: {name}")
                     return
             
             # 构建完整的阶段映射（包括所有可能的阶段名）
@@ -421,7 +454,7 @@ class AllocationApp:
             
             # 确保我们有3个阶段
             if len(new_stage_list) != 3:
-                messagebox.showerror("错误", "阶段构建失败，请重试")
+                self.safe_messagebox('error', "错误", "阶段构建失败，请重试")
                 return
             
             new_stage_list.append(("remaining_allocation", "剩余分配", "尾量零散SKU随机填充"))
@@ -466,11 +499,11 @@ class AllocationApp:
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
-            messagebox.showinfo("成功", "阶段顺序已更新！")
+            self.safe_messagebox('info', "成功", "阶段顺序已更新！")
         except Exception as e:
             print(f"apply_stage_order error: {e}")
             traceback.print_exc()
-            messagebox.showerror("错误", f"应用顺序失败:\n{str(e)}")
+            self.safe_messagebox('error', "错误", f"应用顺序失败:\n{str(e)}")
     
     def reset_stage_order(self):
         try:
@@ -521,11 +554,11 @@ class AllocationApp:
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
-            messagebox.showinfo("成功", "已恢复默认阶段顺序！")
+            self.safe_messagebox('info', "成功", "已恢复默认阶段顺序！")
         except Exception as e:
             print(f"reset_stage_order error: {e}")
             traceback.print_exc()
-            messagebox.showerror("错误", f"恢复默认失败:\n{str(e)}")
+            self.safe_messagebox('error', "错误", f"恢复默认失败:\n{str(e)}")
     
     def toggle_logic(self, event=None):
         if self.logic_expanded:
