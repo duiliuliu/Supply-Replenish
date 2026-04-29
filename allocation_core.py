@@ -390,7 +390,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
         traceback.print_exc()
         return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
 
-def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None, stage_priority=None):
+def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None):
     try:
         data = []
         for store in stores_sorted:
@@ -400,26 +400,7 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
             data.append(row)
         df_quantity = pd.DataFrame(data)
         
-        stage_name_map = {
-            'broken_size_fix': '断码修复',
-            'sales_match': '销量匹配',
-            'sell_through_priority': '销尽率优先',
-            'remaining_allocation': '剩余分配'
-        }
-        
-        stage_order_str = ""
-        if stage_priority and len(stage_priority) > 0:
-            stage_names = [stage_name_map.get(s, s) for s in stage_priority]
-            stage_order_str = "分配逻辑顺序: " + " → ".join(stage_names) + " → 剩余分配"
-        
         reason_data = []
-        
-        if stage_order_str:
-            header_row = {'卖场': stage_order_str, '卖场等级': ''}
-            for sku_info in skus:
-                header_row[sku_info['sku']] = ''
-            reason_data.append(header_row)
-        
         for store in stores_sorted:
             level = store_level_map.get(store, '未知') if store_level_map else '未知'
             row = {'卖场': store, '卖场等级': level}
