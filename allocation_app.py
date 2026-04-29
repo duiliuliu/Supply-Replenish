@@ -41,18 +41,18 @@ class AllocationApp:
             ]
             
             stage_names = {
-                "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                "broken_size_fix": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                "sales_match": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                "sell_through_priority": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             }
             
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             ]
             
-            remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+            remaining_stage = ("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件")
             
             config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
             self.stage_list = []
@@ -363,32 +363,32 @@ class AllocationApp:
             else:
                 bg_color, fg_color = self.stage_colors[-1] if self.stage_colors else ("#F5F5F5", "#666666")
             
-            stage_frame = tk.Frame(self.stages_container, bg=bg_color)
+            stage_frame = tk.Frame(self.stages_container, bg=bg_color, width=180)
             stage_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
-            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
+            stage_frame.pack(side=tk.LEFT, padx=(0 if idx == 0 else 12, 0))
             
             stage_content = tk.Frame(stage_frame, bg=bg_color)
-            stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+            stage_content.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
             
-            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
-            num_frame.pack(padx=8, pady=(0, 12))
+            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=28, height=28)
+            num_frame.pack(padx=4, pady=(0, 8))
             num_frame.pack_propagate(False)
             
-            num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg=fg_color)
+            num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 12, "bold"), bg="#FFFFFF", fg=fg_color)
             num_label.pack(fill=tk.BOTH, expand=True)
             
-            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
+            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg="#1F2937")
             stage_name_label.pack(pady=(0, 4))
             
-            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 10), bg=bg_color, fg="#6B7280", wraplength=150, justify="center")
             stage_desc_label.pack()
             
             self.stage_frames.append((stage_id, stage_frame))
             
             if idx < 3:
-                arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=24)
+                arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=20)
                 arrow_frame.pack(side=tk.LEFT)
-                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
+                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#D1D5DB")
                 arrow_label.pack(fill=tk.BOTH, expand=True)
         except Exception as e:
             print(f"_create_stage_item error for idx {idx}: {e}")
@@ -413,9 +413,9 @@ class AllocationApp:
             
             # 构建完整的阶段映射（包括所有可能的阶段名）
             all_stage_map = {
-                "断码修复": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                "销量匹配": ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                "销尽率优先": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                "断码修复": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                "销量匹配": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             }
             
             # 安全构建新的阶段列表
@@ -429,7 +429,7 @@ class AllocationApp:
                 messagebox.showerror("错误", "阶段构建失败，请重试")
                 return
             
-            new_stage_list.append(("remaining_allocation", "剩余分配", "尾量零散SKU随机填充"))
+            new_stage_list.append(("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件"))
             self.stage_list = new_stage_list
             
             # 更新配置
@@ -482,10 +482,10 @@ class AllocationApp:
     def reset_stage_order(self):
         try:
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-                ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
+                ("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件")
             ]
             self.stage_list = default_stage_list.copy()
             
