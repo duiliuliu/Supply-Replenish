@@ -41,18 +41,18 @@ class AllocationApp:
             ]
             
             stage_names = {
-                "broken_size_fix": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
-                "sales_match": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
-                "sell_through_priority": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
+                "broken_size_fix": ("broken_size_fix", "断码修复", "SA/A级卖场：核心尺码至少2件\n非核心尺码至少1件\n其他等级：核心尺码至少1件"),
+                "sales_match": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期\n+ 安全库存\nSA/A(30天) > B/C/D/OL(14天)"),
+                "sell_through_priority": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重\n所有等级参与\n按得分降序分配"),
             }
             
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
-                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
-                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
+                ("broken_size_fix", "断码修复", "SA/A级卖场：核心尺码至少2件\n非核心尺码至少1件\n其他等级：核心尺码至少1件"),
+                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期\n+ 安全库存\nSA/A(30天) > B/C/D/OL(14天)"),
+                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重\n所有等级参与\n按得分降序分配"),
             ]
             
-            remaining_stage = ("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件")
+            remaining_stage = ("remaining_allocation", "剩余分配", "按等级顺序分配：SA → A → B\n→ C → D → OL\n单卖场上限：10件")
             
             config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
             self.stage_list = []
@@ -413,9 +413,9 @@ class AllocationApp:
             
             # 构建完整的阶段映射（包括所有可能的阶段名）
             all_stage_map = {
-                "断码修复": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
-                "销量匹配": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
-                "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
+                "断码修复": ("broken_size_fix", "断码修复", "SA/A级卖场：核心尺码至少2件\n非核心尺码至少1件\n其他等级：核心尺码至少1件"),
+                "销量匹配": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期\n+ 安全库存\nSA/A(30天) > B/C/D/OL(14天)"),
+                "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重\n所有等级参与\n按得分降序分配"),
             }
             
             # 安全构建新的阶段列表
