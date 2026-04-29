@@ -7,7 +7,6 @@ import os
 import sys
 import traceback
 import json
-import webbrowser
 from allocation_core import allocate_add_order, generate_result_dataframe, DEFAULT_CONFIG, load_config, VERSION
 
 class AllocationApp:
@@ -41,18 +40,18 @@ class AllocationApp:
             ]
             
             stage_names = {
-                "broken_size_fix": ("broken_size_fix", "断码修复", "SA/A级核心尺码≥2件，非核心≥1件；其他等级核心尺码≥1件"),
-                "sales_match": ("sales_match", "销量匹配", "目标库存=日均需求×覆盖周期+安全库存"),
-                "sell_through_priority": ("sell_through_priority", "销尽率优先", "综合得分=销尽率×等级权重，所有等级参与"),
+                "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
             }
             
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "SA/A级核心尺码≥2件，非核心≥1件；其他等级核心尺码≥1件"),
-                ("sales_match", "销量匹配", "目标库存=日均需求×覆盖周期+安全库存"),
-                ("sell_through_priority", "销尽率优先", "综合得分=销尽率×等级权重，所有等级参与"),
+                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
             ]
             
-            remaining_stage = ("remaining_allocation", "剩余分配", "按等级顺序SA→A→B→C→D→OL分配，单店上限10件")
+            remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
             
             config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
             self.stage_list = []
@@ -120,35 +119,6 @@ class AllocationApp:
         self.create_result_section(scrollable_frame)
         self.create_status_bar(scrollable_frame)
     
-    def safe_messagebox(self, msg_type, title, message):
-        """安全显示消息框，处理Tk上下文问题"""
-        try:
-            if not self.root:
-                return
-            
-            self.root.update_idletasks()
-            
-            if msg_type == 'info':
-                messagebox.showinfo(title, message)
-            elif msg_type == 'warning':
-                messagebox.showwarning(title, message)
-            elif msg_type == 'error':
-                messagebox.showerror(title, message)
-        except Exception as e:
-            print(f"Messagebox error: {e}")
-            try:
-                root = tk.Tk()
-                root.withdraw()
-                if msg_type == 'info':
-                    messagebox.showinfo(title, message)
-                elif msg_type == 'warning':
-                    messagebox.showwarning(title, message)
-                elif msg_type == 'error':
-                    messagebox.showerror(title, message)
-                root.destroy()
-            except:
-                pass
-    
     def create_header(self, parent):
         header_frame = tk.Frame(parent, bg="#F5F7FA")
         header_frame.pack(fill=tk.X, pady=(0, 20))
@@ -162,10 +132,6 @@ class AllocationApp:
         subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
         subtitle_label.pack(anchor=tk.W, pady=(4, 0))
         
-        sponsor_label = tk.Label(title_frame, text="❤️ 支持开发者", font=("SF Pro Display", 11), bg="#F5F7FA", fg="#2563EB", cursor="hand2")
-        sponsor_label.pack(anchor=tk.W, pady=(6, 0))
-        sponsor_label.bind("<Button-1>", lambda e: webbrowser.open("https://duiliuliu.github.io/sponsor-page/"))
-        
         version_label = tk.Label(header_frame, text=f"v{self.version}", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
         version_label.pack(side=tk.RIGHT)
     
@@ -176,9 +142,7 @@ class AllocationApp:
     
     def create_config_section(self, parent):
         config_card = self.create_card_frame(parent)
-        config_card.pack(fill=tk.X, expand=True, pady=(0, 16))
-        config_card.pack_propagate(False)
-        config_card.grid_columnconfigure(0, weight=1)
+        config_card.pack(fill=tk.X, pady=(0, 16))
         
         self.config_expanded = True
         
@@ -263,16 +227,13 @@ class AllocationApp:
         save_btn.pack(side=tk.RIGHT, padx=(12, 0))
     
     def toggle_config(self, event=None):
-        try:
-            if self.config_expanded:
-                self.config_content.pack_forget()
-                self.config_toggle.config(text="▶")
-            else:
-                self.config_content.pack(fill=tk.X, padx=20)
-                self.config_toggle.config(text="▼")
-            self.config_expanded = not self.config_expanded
-        except Exception as e:
-            print(f"toggle_config error: {e}")
+        if self.config_expanded:
+            self.config_content.pack_forget()
+            self.config_toggle.config(text="▶")
+        else:
+            self.config_content.pack(fill=tk.X, padx=20)
+            self.config_toggle.config(text="▼")
+        self.config_expanded = not self.config_expanded
     
     def reset_config(self):
         sections = [("coverage_days", {"SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14}),
@@ -321,9 +282,7 @@ class AllocationApp:
     
     def create_logic_section(self, parent):
         logic_card = self.create_card_frame(parent)
-        logic_card.pack(fill=tk.X, expand=True, pady=(0, 16))
-        logic_card.pack_propagate(False)
-        logic_card.grid_columnconfigure(0, weight=1)
+        logic_card.pack(fill=tk.X, pady=(0, 16))
         
         self.logic_expanded = True
         
@@ -413,10 +372,10 @@ class AllocationApp:
             num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg=fg_color)
             num_label.pack(fill=tk.BOTH, expand=True)
             
-            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg="#1F2937")
+            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
             stage_name_label.pack(pady=(0, 4))
             
-            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 9), bg=bg_color, fg="#6B7280", wraplength=140, justify="center")
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
             stage_desc_label.pack()
             
             self.stage_frames.append((stage_id, stage_frame))
@@ -437,21 +396,21 @@ class AllocationApp:
             
             # 验证选择完整性
             if len(set(selected_names)) != 3:
-                self.safe_messagebox('warning', "提示", "请确保每个阶段只选择一次！")
+                messagebox.showwarning("提示", "请确保每个阶段只选择一次！")
                 return
             
             # 验证所有选择都有效
             all_valid_names = ["断码修复", "销量匹配", "销尽率优先"]
             for name in selected_names:
                 if name not in all_valid_names:
-                    self.safe_messagebox('error', "错误", f"无效的阶段名称: {name}")
+                    messagebox.showerror("错误", f"无效的阶段名称: {name}")
                     return
             
             # 构建完整的阶段映射（包括所有可能的阶段名）
             all_stage_map = {
-                "断码修复": ("broken_size_fix", "断码修复", "SA/A级核心尺码≥2件，非核心≥1件；其他等级核心尺码≥1件"),
-                "销量匹配": ("sales_match", "销量匹配", "目标库存=日均需求×覆盖周期+安全库存"),
-                "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分=销尽率×等级权重，所有等级参与"),
+                "断码修复": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                "销量匹配": ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                "销尽率优先": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
             }
             
             # 安全构建新的阶段列表
@@ -462,10 +421,10 @@ class AllocationApp:
             
             # 确保我们有3个阶段
             if len(new_stage_list) != 3:
-                self.safe_messagebox('error', "错误", "阶段构建失败，请重试")
+                messagebox.showerror("错误", "阶段构建失败，请重试")
                 return
             
-            new_stage_list.append(("remaining_allocation", "剩余分配", "按等级顺序SA→A→B→C→D→OL分配，单店上限10件"))
+            new_stage_list.append(("remaining_allocation", "剩余分配", "尾量零散SKU随机填充"))
             self.stage_list = new_stage_list
             
             # 更新配置
@@ -507,19 +466,19 @@ class AllocationApp:
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
-            self.safe_messagebox('info', "成功", "阶段顺序已更新！")
+            messagebox.showinfo("成功", "阶段顺序已更新！")
         except Exception as e:
             print(f"apply_stage_order error: {e}")
             traceback.print_exc()
-            self.safe_messagebox('error', "错误", f"应用顺序失败:\n{str(e)}")
+            messagebox.showerror("错误", f"应用顺序失败:\n{str(e)}")
     
     def reset_stage_order(self):
         try:
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "SA/A级核心尺码≥2件，非核心≥1件；其他等级核心尺码≥1件"),
-                ("sales_match", "销量匹配", "目标库存=日均需求×覆盖周期+安全库存"),
-                ("sell_through_priority", "销尽率优先", "综合得分=销尽率×等级权重，所有等级参与"),
-                ("remaining_allocation", "剩余分配", "按等级顺序SA→A→B→C→D→OL分配，单店上限10件")
+                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
+                ("sales_match", "销量匹配", "依据历史销速加权分配"),
+                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
             ]
             self.stage_list = default_stage_list.copy()
             
@@ -562,23 +521,20 @@ class AllocationApp:
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
-            self.safe_messagebox('info', "成功", "已恢复默认阶段顺序！")
+            messagebox.showinfo("成功", "已恢复默认阶段顺序！")
         except Exception as e:
             print(f"reset_stage_order error: {e}")
             traceback.print_exc()
-            self.safe_messagebox('error', "错误", f"恢复默认失败:\n{str(e)}")
+            messagebox.showerror("错误", f"恢复默认失败:\n{str(e)}")
     
     def toggle_logic(self, event=None):
-        try:
-            if self.logic_expanded:
-                self.logic_content.pack_forget()
-                self.logic_toggle.config(text="▶")
-            else:
-                self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
-                self.logic_toggle.config(text="▼")
-            self.logic_expanded = not self.logic_expanded
-        except Exception as e:
-            print(f"toggle_logic error: {e}")
+        if self.logic_expanded:
+            self.logic_content.pack_forget()
+            self.logic_toggle.config(text="▶")
+        else:
+            self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
+            self.logic_toggle.config(text="▼")
+        self.logic_expanded = not self.logic_expanded
     
     def create_file_upload_section(self, parent):
         upload_frame = tk.Frame(parent, bg="#F5F7FA")
