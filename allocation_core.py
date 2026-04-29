@@ -1,4 +1,4 @@
-# 加单分配核心逻辑 v2.6.1
+# 加单分配核心逻辑 v2.6.0
 import pandas as pd
 import json
 import os
@@ -40,7 +40,7 @@ def get_version():
                     if tomllib is not None:
                         with open(pyproject_path, 'rb') as f:
                             data = tomllib.load(f)
-                            version = data.get('project', {}).get('version', '2.6.1')
+                            version = data.get('project', {}).get('version', '2.6.0')
                             print(f'Loaded version from {pyproject_path}: {version}')
                             return version
                     else:
@@ -55,10 +55,10 @@ def get_version():
             except Exception as e:
                 continue
         
-        return '2.6.1'
+        return '2.6.0'
     except Exception as e:
         print(f'Error reading version: {e}')
-        return '2.6.1'
+        return '2.6.0'
 
 VERSION = get_version()
 
