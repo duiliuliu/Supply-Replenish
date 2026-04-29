@@ -150,12 +150,18 @@ class AllocationApp:
         
         self.config_toggle = tk.Label(header_frame, text="▼", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#6B7280")
         self.config_toggle.pack(side=tk.RIGHT)
+        self.config_toggle.bind("<Button-1>", self.toggle_config)
+        self.config_toggle.config(cursor="hand2")
         
         icon_label = tk.Label(header_frame, text="⚙", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
         icon_label.pack(side=tk.LEFT)
+        icon_label.bind("<Button-1>", self.toggle_config)
+        icon_label.config(cursor="hand2")
         
         config_title = tk.Label(header_frame, text="参数配置", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
         config_title.pack(side=tk.LEFT, padx=(8, 0))
+        config_title.bind("<Button-1>", self.toggle_config)
+        config_title.config(cursor="hand2")
         
         self.config_content = tk.Frame(config_card, bg="#FFFFFF")
         self.config_content.pack(fill=tk.X, padx=20)
@@ -284,12 +290,18 @@ class AllocationApp:
         
         self.logic_toggle = tk.Label(header_frame, text="▼", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#6B7280")
         self.logic_toggle.pack(side=tk.RIGHT)
+        self.logic_toggle.bind("<Button-1>", self.toggle_logic)
+        self.logic_toggle.config(cursor="hand2")
         
         icon_label = tk.Label(header_frame, text="📊", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
         icon_label.pack(side=tk.LEFT)
+        icon_label.bind("<Button-1>", self.toggle_logic)
+        icon_label.config(cursor="hand2")
         
         logic_title = tk.Label(header_frame, text="分配逻辑说明", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
         logic_title.pack(side=tk.LEFT, padx=(8, 0))
+        logic_title.bind("<Button-1>", self.toggle_logic)
+        logic_title.config(cursor="hand2")
         
         self.logic_content = tk.Frame(logic_card, bg="#FFFFFF")
         self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
