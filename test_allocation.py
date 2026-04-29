@@ -79,7 +79,6 @@ class TestConfigLoading(TestBase):
         config_file = os.path.join(temp_dir, "allocation_config.json")
         
         test_config = {
-            "version": "2.3",
             "allocation_config": {
                 "coverage_days": {"SA": 30, "A": 28, "B": 14},
                 "level_weights": {"SA": 1.8, "A": 1.5, "B": 1.0},
@@ -195,7 +194,7 @@ class TestAllocationLogic(TestBase):
             self.add_order_data
         )
         
-        df_qty, df_reason = generate_result_dataframe(
+        df_qty, df_reason, stage_header = generate_result_dataframe(
             result, reasons, stores, skus, level_map
         )
         
@@ -338,7 +337,7 @@ class TestIntegration(unittest.TestCase):
         )
         
         # 生成结果
-        df_qty, df_reason = generate_result_dataframe(
+        df_qty, df_reason, stage_header = generate_result_dataframe(
             result, reasons, stores, skus, level_map
         )
         

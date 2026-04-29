@@ -1,12 +1,68 @@
-# 加单分配核心逻辑 v2.3
+# 加单分配核心逻辑 v2.6.0
 import pandas as pd
 import json
 import os
 import sys
 from collections import defaultdict
 
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
+
+def get_version():
+    """从 pyproject.toml 读取版本号"""
+    try:
+        pyproject_paths = []
+        
+        if getattr(sys, 'frozen', False):
+            pyproject_paths.append(os.path.join(sys._MEIPASS, 'pyproject.toml'))
+            if sys.platform == 'darwin':
+                content_path = os.path.dirname(sys.executable)
+                pyproject_paths.append(os.path.join(content_path, 'pyproject.toml'))
+            else:
+                pyproject_paths.append(os.path.join(os.path.dirname(sys.executable), 'pyproject.toml'))
+        
+        pyproject_paths.append('pyproject.toml')
+        
+        try:
+            script_path = os.path.dirname(os.path.abspath(__file__))
+            pyproject_paths.append(os.path.join(script_path, 'pyproject.toml'))
+        except:
+            pass
+        
+        for pyproject_path in pyproject_paths:
+            try:
+                if os.path.exists(pyproject_path):
+                    if tomllib is not None:
+                        with open(pyproject_path, 'rb') as f:
+                            data = tomllib.load(f)
+                            version = data.get('project', {}).get('version', '2.6.0')
+                            print(f'Loaded version from {pyproject_path}: {version}')
+                            return version
+                    else:
+                        import re
+                        with open(pyproject_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
+                            if match:
+                                version = match.group(1)
+                                print(f'Loaded version from {pyproject_path}: {version}')
+                                return version
+            except Exception as e:
+                continue
+        
+        return '2.6.0'
+    except Exception as e:
+        print(f'Error reading version: {e}')
+        return '2.6.0'
+
+VERSION = get_version()
+
 DEFAULT_CONFIG = {
-    "version": "2.3",
     "allocation_config": {
         "coverage_days": {
             "SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14
@@ -299,7 +355,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
             store_data = {}
             for store in stores_sorted:
                 inv = get_inventory(df_inventory, store, sku)
-                sales_30d = get_30day_sales(df_sales, store, sku)
+                sales_30d = get_30day_sales(df_sales, sku, store)
                 level = get_store_level(df_store_level, store)
                 
                 total = sales_30d + inv
@@ -334,7 +390,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
         traceback.print_exc()
         return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
 
-def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None):
+def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None, stage_order=None):
     try:
         data = []
         for store in stores_sorted:
@@ -343,6 +399,17 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
                 row[sku_info['sku']] = allocation_result[store][sku_info['sku']]
             data.append(row)
         df_quantity = pd.DataFrame(data)
+        
+        stage_order_header = None
+        if stage_order:
+            stage_name_map = {
+                'broken_size_fix': '断码修复',
+                'sales_match': '销量匹配',
+                'sell_through_priority': '销尽率优先',
+                'remaining_allocation': '剩余分配'
+            }
+            stage_names = [stage_name_map.get(s, s) for s in stage_order]
+            stage_order_header = '当前分配逻辑顺序：' + ' → '.join(stage_names)
         
         reason_data = []
         for store in stores_sorted:
@@ -353,9 +420,9 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
             reason_data.append(row)
         df_reason = pd.DataFrame(reason_data)
         
-        return df_quantity, df_reason
+        return df_quantity, df_reason, stage_order_header
     except Exception as e:
         print(f'Error in generate_result_dataframe: {e}')
         import traceback
         traceback.print_exc()
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), None

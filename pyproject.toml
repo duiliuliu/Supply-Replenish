@@ -2,7 +2,7 @@
 name = "Supply-Replenish"
 title = "加单商品分配系统"
 description = "跨平台的加单商品分配系统，支持Windows、macOS和Linux平台"
-version = "0.0.5"
+version = "2.6.2"
 authors = [
     { name = "Author", email = "author@example.com" }
 ]
