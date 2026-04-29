@@ -128,15 +128,26 @@ class AllocationApp:
         title_frame.pack(side=tk.LEFT)
         
         title_label = tk.Label(title_frame, text="加单商品分配系统", font=("SF Pro Display", 24, "bold"), bg="#F5F7FA", fg="#1F2937")
-        title_label.pack(anchor=tk.W)
-        
-        subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
-        subtitle_label.pack(anchor=tk.W, pady=(4, 0))
-        
-        # 打赏链接
-        donate_label = tk.Label(title_frame, text="❤️ 请作者喝杯咖啡", font=("SF Pro Display", 11), bg="#F5F7FA", fg="#EF4444", cursor="hand2")
-        donate_label.pack(anchor=tk.W, pady=(2, 0))
-        donate_label.bind("<Button-1>", self.open_donate)
+            title_label.pack(anchor=tk.W)
+            
+            subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
+            subtitle_label.pack(anchor=tk.W, pady=(4, 0))
+            
+            links_frame = tk.Frame(title_frame, bg="#F5F7FA")
+            links_frame.pack(anchor=tk.W, pady=(4, 0))
+            
+            docs_label = tk.Label(links_frame, text="📖 产品说明文档", font=("SF Pro Display", 11), bg="#F5F7FA", fg="#2563EB", cursor="hand2")
+            docs_label.pack(side=tk.LEFT, padx=(0, 16))
+            docs_label.bind("<Button-1>", self.open_docs)
+            
+            examples_label = tk.Label(links_frame, text="📊 验证示例文档", font=("SF Pro Display", 11), bg="#F5F7FA", fg="#2563EB", cursor="hand2")
+            examples_label.pack(side=tk.LEFT, padx=(0, 16))
+            examples_label.bind("<Button-1>", self.open_examples)
+            
+            # 打赏链接
+            donate_label = tk.Label(links_frame, text="❤️ 请作者喝杯咖啡", font=("SF Pro Display", 11), bg="#F5F7FA", fg="#EF4444", cursor="hand2")
+            donate_label.pack(side=tk.LEFT)
+            donate_label.bind("<Button-1>", self.open_donate)
         
         version_label = tk.Label(header_frame, text=f"v{self.version}", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
         version_label.pack(side=tk.RIGHT)
@@ -757,6 +768,14 @@ class AllocationApp:
     def open_donate(self, event=None):
         import webbrowser
         webbrowser.open("https://duiliuliu.github.io/sponsor-page/")
+    
+    def open_docs(self, event=None):
+        import webbrowser
+        webbrowser.open("https://github.com/duiliuliu/Supply-Replenish/blob/main/README.md")
+    
+    def open_examples(self, event=None):
+        import webbrowser
+        webbrowser.open("https://github.com/duiliuliu/Supply-Replenish/blob/main/VERIFICATION_EXAMPLES.md")
 
 if __name__ == "__main__":
     try:
