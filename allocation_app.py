@@ -22,8 +22,8 @@ class AllocationApp:
             self.version = VERSION
             
             self.root.title(f"加单商品分配系统 v{self.version}")
-            self.root.geometry("800x900")
-            self.root.minsize(750, 750)
+            self.root.geometry("1100x900")
+            self.root.minsize(1000, 800)
             self.root.configure(bg="#F5F7FA")
             
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -99,17 +99,17 @@ class AllocationApp:
         
         canvas = tk.Canvas(main_container, bg="#F5F7FA", highlightthickness=0)
         scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#F5F7FA", width=720)
+        scrollable_frame = tk.Frame(canvas, bg="#F5F7FA")
         
         scrollable_frame.bind(
             "<Configure>",
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
         
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=720)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        canvas.pack(side="left", fill="both", expand=True, padx=20, pady=16)
+        canvas.pack(side="left", fill="both", expand=True, padx=24, pady=20)
         scrollbar.pack(side="right", fill="y")
         
         self.create_header(scrollable_frame)
@@ -381,7 +381,7 @@ class AllocationApp:
             stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
             stage_name_label.pack(pady=(0, 4))
             
-            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 10), bg=bg_color, fg="#6B7280", wraplength=280, justify=tk.LEFT)
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
             stage_desc_label.pack()
             
             self.stage_frames.append((stage_id, stage_frame))
@@ -689,12 +689,12 @@ class AllocationApp:
                 config["allocation_config"] = {}
             config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
             
-            allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_priority = allocate_add_order(
+            allocation_result, allocation_reasons, stores_sorted, skus, store_level_map = allocate_add_order(
                 df_inventory, df_sales, df_store_level, df_add_order, config
             )
             
             self.result_df, self.reason_df = generate_result_dataframe(
-                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_priority
+                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
             )
             
             self.display_result()

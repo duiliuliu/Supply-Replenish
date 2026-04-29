@@ -40,12 +40,10 @@ def create_test_data():
 def count_allocation_reasons(reason_df, reason_type):
     """统计某种分配原因的数量"""
     count = 0
-    # 跳过第一行说明行
-    data_df = reason_df.iloc[1:] if len(reason_df) > 0 else reason_df
-    for col in data_df.columns:
+    for col in reason_df.columns:
         if col in ['卖场', '卖场等级']:
             continue
-        for val in data_df[col]:
+        for val in reason_df[col]:
             if reason_type in str(val):
                 count += 1
     return count
@@ -76,12 +74,12 @@ def test_stage_order(order_str):
     
     df_inventory, df_sales, df_store_level, df_add_order = create_test_data()
     
-    allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_priority = allocate_add_order(
+    allocation_result, allocation_reasons, stores_sorted, skus, store_level_map = allocate_add_order(
         df_inventory, df_sales, df_store_level, df_add_order, config
     )
     
     result_df, reason_df = generate_result_dataframe(
-        allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_priority
+        allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
     )
     
     total_allocated = 0

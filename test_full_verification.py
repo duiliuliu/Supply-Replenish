@@ -106,7 +106,7 @@ def create_test_data():
 print("\n2.1 测试默认阶段顺序 (断码修复 → 销量匹配 → 销尽率优先)...")
 df_inventory, df_sales, df_store_level, df_add_order = create_test_data()
 
-result1, reasons1, stores1, skus1, level_map1, stage_priority1 = allocate_add_order(
+result1, reasons1, stores1, skus1, level_map1 = allocate_add_order(
     df_inventory, df_sales, df_store_level, df_add_order, DEFAULT_CONFIG
 )
 total1 = sum(sum(result1[store].values()) for store in stores1)
@@ -128,7 +128,7 @@ custom_config = DEFAULT_CONFIG.copy()
 custom_config['allocation_config'] = DEFAULT_CONFIG['allocation_config'].copy()
 custom_config['allocation_config']['stage_priority'] = ['sales_match', 'broken_size_fix', 'sell_through_priority']
 
-result2, reasons2, stores2, skus2, level_map2, stage_priority2 = allocate_add_order(
+result2, reasons2, stores2, skus2, level_map2 = allocate_add_order(
     df_inventory, df_sales, df_store_level, df_add_order, custom_config
 )
 total2 = sum(sum(result2[store].values()) for store in stores2)
@@ -221,7 +221,7 @@ print("=" * 70)
 print("\n4.1 测试零库存场景...")
 df_zero_inv = df_inventory.copy()
 df_zero_inv['库存数量'] = 0
-result_zi, _, stores_zi, skus_zi, _, _ = allocate_add_order(
+result_zi, _, stores_zi, skus_zi, _ = allocate_add_order(
     df_zero_inv, df_sales, df_store_level, df_add_order, DEFAULT_CONFIG
 )
 total_zi = sum(sum(result_zi[store].values()) for store in stores_zi)
@@ -230,7 +230,7 @@ print(f"  零库存分配数量: {total_zi} (期望: 100) {'✓' if total_zi == 
 print("\n4.2 测试零销量场景...")
 df_zero_sales = df_sales.copy()
 df_zero_sales['数量'] = 0
-result_zs, _, stores_zs, skus_zs, _, _ = allocate_add_order(
+result_zs, _, stores_zs, skus_zs, _ = allocate_add_order(
     df_inventory, df_zero_sales, df_store_level, df_add_order, DEFAULT_CONFIG
 )
 total_zs = sum(sum(result_zs[store].values()) for store in stores_zs)
@@ -239,9 +239,9 @@ print(f"  零销量分配数量: {total_zs} (期望: 100) {'✓' if total_zs == 
 print("\n4.3 测试空加单场景...")
 df_empty_add = pd.DataFrame({'SKU': [], 'SKC': [], '需分配数量': []})
 try:
-    result_ea, _, stores_ea, skus_ea, _, _ = allocate_add_order(
-    df_inventory, df_sales, df_store_level, df_empty_add, DEFAULT_CONFIG
-)
+    result_ea, _, stores_ea, skus_ea, _ = allocate_add_order(
+        df_inventory, df_sales, df_store_level, df_empty_add, DEFAULT_CONFIG
+    )
     total_ea = sum(sum(result_ea[store].values()) for store in stores_ea) if result_ea else 0
     print(f"  空加单分配数量: {total_ea} (期望: 0) {'✓' if total_ea == 0 else '✗'}")
 except:
@@ -250,7 +250,7 @@ except:
 print("\n4.4 测试高库存场景（不需要分配）...")
 df_high_inv = df_inventory.copy()
 df_high_inv['库存数量'] = 1000  # 高库存
-result_hi, _, stores_hi, skus_hi, _, _ = allocate_add_order(
+result_hi, _, stores_hi, skus_hi, _ = allocate_add_order(
     df_high_inv, df_sales, df_store_level, df_add_order, DEFAULT_CONFIG
 )
 total_hi = sum(sum(result_hi[store].values()) for store in stores_hi)
@@ -293,11 +293,11 @@ print("=" * 70)
 
 print("\n6.1 测试generate_result_dataframe...")
 result_df, reason_df = generate_result_dataframe(
-    result1, reasons1, stores1, skus1, level_map1, stage_priority1
+    result1, reasons1, stores1, skus1, level_map1
 )
 
 print(f"  分配数量表行数: {len(result_df)} (期望: 5) {'✓' if len(result_df) == 5 else '✗'}")
-print(f"  分配原因表行数: {len(reason_df)} (期望: 6) {'✓' if len(reason_df) == 6 else '✗'}")
+print(f"  分配原因表行数: {len(reason_df)} (期望: 5) {'✓' if len(reason_df) == 5 else '✗'}")
 print(f"  分配原因表包含卖场等级列: {'✓' if '卖场等级' in reason_df.columns else '✗'}")
 
 # 检查总分配数量

@@ -140,7 +140,7 @@ class TestAllocationLogic(TestBase):
     
     def test_full_allocation(self):
         """测试完整的分配流程"""
-        result, reasons, stores, skus, level_map, stage_priority = allocate_add_order(
+        result, reasons, stores, skus, level_map = allocate_add_order(
             self.inventory_data,
             self.sales_data,
             self.store_level_data,
@@ -175,7 +175,7 @@ class TestAllocationLogic(TestBase):
             }
         }
         
-        result, reasons, stores, skus, level_map, stage_priority = allocate_add_order(
+        result, reasons, stores, skus, level_map = allocate_add_order(
             self.inventory_data,
             self.sales_data,
             self.store_level_data,
@@ -187,7 +187,7 @@ class TestAllocationLogic(TestBase):
     
     def test_generate_result_dataframe(self):
         """测试生成结果DataFrame"""
-        result, reasons, stores, skus, level_map, stage_priority = allocate_add_order(
+        result, reasons, stores, skus, level_map = allocate_add_order(
             self.inventory_data,
             self.sales_data,
             self.store_level_data,
@@ -195,14 +195,13 @@ class TestAllocationLogic(TestBase):
         )
         
         df_qty, df_reason = generate_result_dataframe(
-            result, reasons, stores, skus, level_map, stage_priority
+            result, reasons, stores, skus, level_map
         )
         
         self.assertIsNotNone(df_qty)
         self.assertIsNotNone(df_reason)
         self.assertEqual(len(df_qty), len(stores))
-        # reason_df会多一行说明行
-        self.assertEqual(len(df_reason), len(stores) + 1)
+        self.assertEqual(len(df_reason), len(stores))
         self.assertIn("卖场等级", df_reason.columns)
 
 
@@ -234,7 +233,7 @@ class TestBoundaryConditions(unittest.TestCase):
             "需分配数量": [30]
         })
         
-        result, reasons, stores, skus, level_map, stage_priority = allocate_add_order(
+        result, reasons, stores, skus, level_map = allocate_add_order(
             inventory_data, sales_data, store_level_data, add_order_data
         )
         
@@ -265,7 +264,7 @@ class TestBoundaryConditions(unittest.TestCase):
             "需分配数量": [20]
         })
         
-        result, reasons, stores, skus, level_map, stage_priority = allocate_add_order(
+        result, reasons, stores, skus, level_map = allocate_add_order(
             inventory_data, sales_data, store_level_data, add_order_data
         )
         
@@ -296,7 +295,7 @@ class TestBoundaryConditions(unittest.TestCase):
             "需分配数量": [0]
         })
         
-        result, reasons, stores, skus, level_map, stage_priority = allocate_add_order(
+        result, reasons, stores, skus, level_map = allocate_add_order(
             inventory_data, sales_data, store_level_data, add_order_data
         )
         
@@ -333,19 +332,18 @@ class TestIntegration(unittest.TestCase):
         })
         
         # 执行分配
-        result, reasons, stores, skus, level_map, stage_priority = allocate_add_order(
+        result, reasons, stores, skus, level_map = allocate_add_order(
             inventory_df, sales_df, store_level_df, add_order_df
         )
         
         # 生成结果
         df_qty, df_reason = generate_result_dataframe(
-            result, reasons, stores, skus, level_map, stage_priority
+            result, reasons, stores, skus, level_map
         )
         
         # 验证结果
         self.assertEqual(len(df_qty), 4)
-        # reason_df会多一行说明行
-        self.assertEqual(len(df_reason), 5)
+        self.assertEqual(len(df_reason), 4)
         
         # 验证列名
         self.assertIn("卖场", df_qty.columns)

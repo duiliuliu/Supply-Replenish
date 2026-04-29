@@ -383,14 +383,14 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                                                           allocation_reasons, remaining_qty, level_order, 
                                                           max_remaining_per_store, store_level_map)
         
-        return allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_priority
+        return allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
     except Exception as e:
         print(f'Error in allocate_add_order: {e}')
         import traceback
         traceback.print_exc()
-        return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}, None
+        return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
 
-def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None, stage_priority=None):
+def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None):
     try:
         data = []
         for store in stores_sorted:
@@ -401,24 +401,6 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
         df_quantity = pd.DataFrame(data)
         
         reason_data = []
-        # 阶段名称映射
-        stage_name_map = {
-            'broken_size_fix': '断码修复',
-            'sales_match': '销量匹配',
-            'sell_through_priority': '销尽率优先',
-            'remaining_allocation': '剩余分配'
-        }
-        # 如果有阶段优先级，添加说明行
-        if stage_priority:
-            # 构建说明
-            stage_order_desc = '分配顺序: ' + ' → '.join([stage_name_map.get(stage, stage) for stage in stage_priority]) + ' → 剩余分配'
-            # 创建第一行说明
-            first_row = {'卖场': stage_order_desc, '卖场等级': ''}
-            for sku_info in skus:
-                first_row[sku_info['sku']] = ''
-            reason_data.append(first_row)
-        
-        # 添加数据行
         for store in stores_sorted:
             level = store_level_map.get(store, '未知') if store_level_map else '未知'
             row = {'卖场': store, '卖场等级': level}
