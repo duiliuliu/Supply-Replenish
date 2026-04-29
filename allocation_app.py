@@ -748,7 +748,7 @@ class AllocationApp:
     
     def open_donate(self, event=None):
         import webbrowser
-        webbrowser.open("https://www.example.com/donate")
+        webbrowser.open("https://duiliuliu.github.io/sponsor-page/")
 
 if __name__ == "__main__":
     try:
