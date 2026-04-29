@@ -40,18 +40,18 @@ class AllocationApp:
             ]
             
             stage_names = {
-                "broken_size_fix": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件\n非核心尺码至少1件\n其他等级核心尺码至少1件"),
-                "sales_match": ("sales_match", "销量匹配", "目标库存 = 平均日需求\n× 覆盖周期 + 安全库存"),
-                "sell_through_priority": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率\n× 等级权重，降序分配"),
+                "broken_size_fix": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                "sales_match": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                "sell_through_priority": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             }
             
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件\n非核心尺码至少1件\n其他等级核心尺码至少1件"),
-                ("sales_match", "销量匹配", "目标库存 = 平均日需求\n× 覆盖周期 + 安全库存"),
-                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率\n× 等级权重，降序分配"),
+                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             ]
             
-            remaining_stage = ("remaining_allocation", "剩余分配", "按等级优先级分配\nSA → A → B → C → D → OL\n单卖场上限10件")
+            remaining_stage = ("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件")
             
             config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
             self.stage_list = []
@@ -360,13 +360,13 @@ class AllocationApp:
             else:
                 bg_color, fg_color = self.stage_colors[-1] if self.stage_colors else ("#F5F5F5", "#666666")
             
-            stage_frame = tk.Frame(self.stages_container, bg=bg_color, width=200)
+            stage_frame = tk.Frame(self.stages_container, bg=bg_color)
             stage_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
-            stage_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0 if idx == 0 else 8, 0))
-            stage_frame.pack_propagate(False)
+            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0 if idx == 0 else 8, 0))
             
-            stage_content = tk.Frame(stage_frame, bg=bg_color)
+            stage_content = tk.Frame(stage_frame, bg=bg_color, width=200)
             stage_content.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+            stage_content.pack_propagate(False)
             
             num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=28, height=28)
             num_frame.pack(padx=4, pady=(0, 8))
@@ -378,8 +378,9 @@ class AllocationApp:
             stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg="#1F2937")
             stage_name_label.pack(pady=(0, 4))
             
-            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 10), bg=bg_color, fg="#6B7280", 
-                                        justify=tk.LEFT, wraplength=170)
+            wrapped_desc = self._wrap_text(desc, 16)
+            stage_desc_label = tk.Label(stage_content, text=wrapped_desc, font=("SF Pro Display", 10), bg=bg_color, fg="#6B7280", 
+                                        justify=tk.LEFT)
             stage_desc_label.pack()
             
             self.stage_frames.append((stage_id, stage_frame))
@@ -393,6 +394,13 @@ class AllocationApp:
             print(f"_create_stage_item error for idx {idx}: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _wrap_text(self, text, max_chars):
+        """将文本按指定字符数换行"""
+        result = []
+        for i in range(0, len(text), max_chars):
+            result.append(text[i:i+max_chars])
+        return '\n'.join(result)
     
     def apply_stage_order(self):
         try:
@@ -409,9 +417,9 @@ class AllocationApp:
                     return
             
             all_stage_map = {
-                "断码修复": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件\n非核心尺码至少1件\n其他等级核心尺码至少1件"),
-                "销量匹配": ("sales_match", "销量匹配", "目标库存 = 平均日需求\n× 覆盖周期 + 安全库存"),
-                "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率\n× 等级权重，降序分配"),
+                "断码修复": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                "销量匹配": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             }
             
             new_stage_list = []
@@ -423,7 +431,7 @@ class AllocationApp:
                 messagebox.showerror("错误", "阶段构建失败，请重试")
                 return
             
-            new_stage_list.append(("remaining_allocation", "剩余分配", "按等级优先级分配\nSA → A → B → C → D → OL\n单卖场上限10件"))
+            new_stage_list.append(("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件"))
             self.stage_list = new_stage_list
             
             if "allocation_config" not in self.config:
@@ -469,10 +477,10 @@ class AllocationApp:
     def reset_stage_order(self):
         try:
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件\n非核心尺码至少1件\n其他等级核心尺码至少1件"),
-                ("sales_match", "销量匹配", "目标库存 = 平均日需求\n× 覆盖周期 + 安全库存"),
-                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率\n× 等级权重，降序分配"),
-                ("remaining_allocation", "剩余分配", "按等级优先级分配\nSA → A → B → C → D → OL\n单卖场上限10件")
+                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
+                ("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件")
             ]
             self.stage_list = default_stage_list.copy()
             
