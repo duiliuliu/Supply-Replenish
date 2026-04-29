@@ -22,8 +22,8 @@ class AllocationApp:
             self.version = VERSION
             
             self.root.title(f"加单商品分配系统 v{self.version}")
-            self.root.geometry("900x950")
-            self.root.minsize(900, 950)
+            self.root.geometry("1100x900")
+            self.root.minsize(1000, 800)
             self.root.configure(bg="#F5F7FA")
             
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -109,7 +109,7 @@ class AllocationApp:
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        canvas.pack(side="left", fill="both", expand=True, padx=20, pady=16)
+        canvas.pack(side="left", fill="both", expand=True, padx=24, pady=20)
         scrollbar.pack(side="right", fill="y")
         
         self.create_header(scrollable_frame)
@@ -121,7 +121,7 @@ class AllocationApp:
     
     def create_header(self, parent):
         header_frame = tk.Frame(parent, bg="#F5F7FA")
-        header_frame.pack(fill=tk.X, pady=(0, 16))
+        header_frame.pack(fill=tk.X, pady=(0, 20))
         
         title_frame = tk.Frame(header_frame, bg="#F5F7FA")
         title_frame.pack(side=tk.LEFT)
@@ -132,6 +132,7 @@ class AllocationApp:
         subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
         subtitle_label.pack(anchor=tk.W, pady=(4, 0))
         
+        # 打赏链接
         donate_label = tk.Label(title_frame, text="❤️ 请作者喝杯咖啡", font=("SF Pro Display", 11), bg="#F5F7FA", fg="#EF4444", cursor="hand2")
         donate_label.pack(anchor=tk.W, pady=(2, 0))
         donate_label.bind("<Button-1>", self.open_donate)
@@ -146,7 +147,7 @@ class AllocationApp:
     
     def create_config_section(self, parent):
         config_card = self.create_card_frame(parent)
-        config_card.pack(fill=tk.X, pady=(0, 12))
+        config_card.pack(fill=tk.X, pady=(0, 16))
         
         self.config_expanded = True
         
@@ -251,6 +252,7 @@ class AllocationApp:
                     self.config_entries[key][level].delete(0, tk.END)
                     self.config_entries[key][level].insert(0, str(val))
         
+        # 延迟显示消息框，避免 Mac Tkinter 崩溃
         self.root.after(100, lambda: messagebox.showinfo("成功", "已恢复默认配置"))
     
     def save_config(self):
@@ -286,7 +288,7 @@ class AllocationApp:
     
     def create_logic_section(self, parent):
         logic_card = self.create_card_frame(parent)
-        logic_card.pack(fill=tk.X, pady=(0, 12))
+        logic_card.pack(fill=tk.X, pady=(0, 16))
         
         self.logic_expanded = True
         
@@ -355,78 +357,75 @@ class AllocationApp:
     
     def _create_stage_item(self, idx, stage_id, name, desc):
         try:
+            # 安全获取颜色，防止索引越界
             if idx < len(self.stage_colors):
                 bg_color, fg_color = self.stage_colors[idx]
             else:
+                # 使用最后一个颜色作为默认
                 bg_color, fg_color = self.stage_colors[-1] if self.stage_colors else ("#F5F5F5", "#666666")
             
             stage_frame = tk.Frame(self.stages_container, bg=bg_color)
             stage_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
-            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0 if idx == 0 else 8, 0))
+            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
             
-            stage_content = tk.Frame(stage_frame, bg=bg_color, width=200)
-            stage_content.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
-            stage_content.pack_propagate(False)
+            stage_content = tk.Frame(stage_frame, bg=bg_color)
+            stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
             
-            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=28, height=28)
-            num_frame.pack(padx=4, pady=(0, 8))
+            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
+            num_frame.pack(padx=8, pady=(0, 12))
             num_frame.pack_propagate(False)
             
-            num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg=fg_color)
+            num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg=fg_color)
             num_label.pack(fill=tk.BOTH, expand=True)
             
-            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg="#1F2937")
+            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
             stage_name_label.pack(pady=(0, 4))
             
-            wrapped_desc = self._wrap_text(desc, 16)
-            stage_desc_label = tk.Label(stage_content, text=wrapped_desc, font=("SF Pro Display", 10), bg=bg_color, fg="#6B7280", 
-                                        justify=tk.LEFT)
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
             stage_desc_label.pack()
             
             self.stage_frames.append((stage_id, stage_frame))
             
             if idx < 3:
-                arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=20)
+                arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=24)
                 arrow_frame.pack(side=tk.LEFT)
-                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#D1D5DB")
+                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
                 arrow_label.pack(fill=tk.BOTH, expand=True)
         except Exception as e:
             print(f"_create_stage_item error for idx {idx}: {e}")
             import traceback
             traceback.print_exc()
     
-    def _wrap_text(self, text, max_chars):
-        """将文本按指定字符数换行"""
-        result = []
-        for i in range(0, len(text), max_chars):
-            result.append(text[i:i+max_chars])
-        return '\n'.join(result)
-    
     def apply_stage_order(self):
         try:
             selected_names = [var.get() for var in self.stage_vars]
             
+            # 验证选择完整性
             if len(set(selected_names)) != 3:
                 messagebox.showwarning("提示", "请确保每个阶段只选择一次！")
                 return
             
+            # 验证所有选择都有效
             all_valid_names = ["断码修复", "销量匹配", "销尽率优先"]
             for name in selected_names:
                 if name not in all_valid_names:
                     messagebox.showerror("错误", f"无效的阶段名称: {name}")
                     return
             
+            # 构建完整的阶段映射（包括所有可能的阶段名）
             all_stage_map = {
                 "断码修复": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
                 "销量匹配": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
                 "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             }
             
+            # 安全构建新的阶段列表
             new_stage_list = []
             for name in selected_names:
                 if name in all_stage_map:
                     new_stage_list.append(all_stage_map[name])
             
+            # 确保我们有3个阶段
             if len(new_stage_list) != 3:
                 messagebox.showerror("错误", "阶段构建失败，请重试")
                 return
@@ -434,10 +433,12 @@ class AllocationApp:
             new_stage_list.append(("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件"))
             self.stage_list = new_stage_list
             
+            # 更新配置
             if "allocation_config" not in self.config:
                 self.config["allocation_config"] = {}
             self.config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
             
+            # 安全更新阶段显示
             if hasattr(self, 'stages_container') and self.stages_container:
                 try:
                     for widget in self.stages_container.winfo_children():
@@ -450,12 +451,14 @@ class AllocationApp:
             
             self.stage_frames = []
             
+            # 确保 stages_container 存在
             if not hasattr(self, 'stages_container') or not self.stages_container:
                 print("警告: stages_container 不存在，尝试重建")
                 if hasattr(self, 'logic_content') and self.logic_content:
                     self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
                     self.stages_container.pack(fill=tk.X, pady=(12, 0))
             
+            # 只在 stages_container 存在时创建阶段项
             if hasattr(self, 'stages_container') and self.stages_container:
                 for i, (stage_id, name, desc) in enumerate(self.stage_list):
                     try:
@@ -463,15 +466,18 @@ class AllocationApp:
                     except Exception as e:
                         print(f"创建阶段 {i} 失败: {e}")
             
+            # 安全更新下拉框显示为新的顺序
             if hasattr(self, 'stage_vars'):
                 for i, var in enumerate(self.stage_vars):
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
             self.root.after(100, lambda: messagebox.showinfo("成功", "阶段顺序已更新！"))
         except Exception as e:
             print(f"apply_stage_order error: {e}")
             traceback.print_exc()
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
             self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"应用顺序失败:\n{err}"))
     
     def reset_stage_order(self):
@@ -484,10 +490,12 @@ class AllocationApp:
             ]
             self.stage_list = default_stage_list.copy()
             
+            # 更新配置
             if "allocation_config" not in self.config:
                 self.config["allocation_config"] = {}
             self.config["allocation_config"]["stage_priority"] = ["broken_size_fix", "sales_match", "sell_through_priority"]
             
+            # 安全更新阶段显示
             if hasattr(self, 'stages_container') and self.stages_container:
                 try:
                     for widget in self.stages_container.winfo_children():
@@ -500,12 +508,14 @@ class AllocationApp:
             
             self.stage_frames = []
             
+            # 确保 stages_container 存在
             if not hasattr(self, 'stages_container') or not self.stages_container:
                 print("警告: stages_container 不存在，尝试重建")
                 if hasattr(self, 'logic_content') and self.logic_content:
                     self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
                     self.stages_container.pack(fill=tk.X, pady=(12, 0))
             
+            # 只在 stages_container 存在时创建阶段项
             if hasattr(self, 'stages_container') and self.stages_container:
                 for i, (stage_id, name, desc) in enumerate(self.stage_list):
                     try:
@@ -513,15 +523,18 @@ class AllocationApp:
                     except Exception as e:
                         print(f"创建阶段 {i} 失败: {e}")
             
+            # 安全更新下拉框显示为新的顺序
             if hasattr(self, 'stage_vars'):
                 for i, var in enumerate(self.stage_vars):
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
             self.root.after(100, lambda: messagebox.showinfo("成功", "已恢复默认阶段顺序！"))
         except Exception as e:
             print(f"reset_stage_order error: {e}")
             traceback.print_exc()
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
             self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"恢复默认失败:\n{err}"))
     
     def toggle_logic(self, event=None):
@@ -535,71 +548,71 @@ class AllocationApp:
     
     def create_file_upload_section(self, parent):
         upload_frame = tk.Frame(parent, bg="#F5F7FA")
-        upload_frame.pack(fill=tk.X, pady=(0, 12))
+        upload_frame.pack(fill=tk.X, pady=(0, 16))
         
         upload_inner = tk.Frame(upload_frame, bg="#F5F7FA")
         upload_inner.pack(fill=tk.X)
         
         file_zone = tk.Frame(upload_inner, bg="#FFFFFF")
         file_zone.config(highlightbackground="#D1D5DB", highlightcolor="#D1D5DB", highlightthickness=1)
-        file_zone.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
+        file_zone.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 16))
         
         file_zone.bind("<Button-1>", lambda e: self.browse_file())
         file_zone.config(cursor="hand2")
         
         zone_content = tk.Frame(file_zone, bg="#FFFFFF")
-        zone_content.pack(fill=tk.BOTH, expand=True, padx=40, pady=40)
+        zone_content.pack(fill=tk.BOTH, expand=True, padx=60, pady=50)
         zone_content.bind("<Button-1>", lambda e: self.browse_file())
         zone_content.config(cursor="hand2")
         
-        cloud_icon = tk.Label(zone_content, text="☁", font=("Arial", 48), bg="#FFFFFF", fg="#9CA3AF")
-        cloud_icon.pack(pady=(0, 12))
+        cloud_icon = tk.Label(zone_content, text="☁", font=("Arial", 56), bg="#FFFFFF", fg="#9CA3AF")
+        cloud_icon.pack(pady=(0, 16))
         cloud_icon.bind("<Button-1>", lambda e: self.browse_file())
         cloud_icon.config(cursor="hand2")
         
-        title_label = tk.Label(zone_content, text="拖拽或点击上传清单", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        title_label = tk.Label(zone_content, text="拖拽或点击上传清单", font=("SF Pro Display", 16, "bold"), bg="#FFFFFF", fg="#1F2937")
         title_label.pack()
         title_label.bind("<Button-1>", lambda e: self.browse_file())
         title_label.config(cursor="hand2")
         
-        desc_label = tk.Label(zone_content, text="支持 .xlsx, .csv 格式，单次处理上限 10,000 行", font=("SF Pro Display", 13), bg="#FFFFFF", fg="#6B7280")
+        desc_label = tk.Label(zone_content, text="支持 .xlsx, .csv 格式，单次处理上限 10,000 行", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#6B7280")
         desc_label.pack(pady=(8, 0))
         desc_label.bind("<Button-1>", lambda e: self.browse_file())
         desc_label.config(cursor="hand2")
         
-        self.file_name_label = tk.Label(zone_content, text="", font=("SF Pro Display", 12, "bold"), bg="#FFFFFF", fg="#2563EB")
+        self.file_name_label = tk.Label(zone_content, text="", font=("SF Pro Display", 13, "bold"), bg="#FFFFFF", fg="#2563EB")
         self.file_name_label.pack(pady=(12, 0))
         self.file_name_label.bind("<Button-1>", lambda e: self.browse_file())
         self.file_name_label.config(cursor="hand2")
         
-        action_zone = tk.Frame(upload_inner, bg="#2563EB", width=280)
+        action_zone = tk.Frame(upload_inner, bg="#2563EB", width=320)
         action_zone.pack(side=tk.RIGHT, fill=tk.BOTH)
         
         action_content = tk.Frame(action_zone, bg="#2563EB")
-        action_content.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        action_content.pack(fill=tk.BOTH, expand=True, padx=24, pady=24)
         
-        rocket_icon = tk.Label(action_content, text="🚀", font=("Arial", 36), bg="#2563EB")
-        rocket_icon.pack(pady=(0, 10))
+        rocket_icon = tk.Label(action_content, text="🚀", font=("Arial", 40), bg="#2563EB")
+        rocket_icon.pack(pady=(0, 12))
         
-        action_title = tk.Label(action_content, text="执行加单分配", font=("SF Pro Display", 15, "bold"), bg="#2563EB", fg="white")
+        action_title = tk.Label(action_content, text="执行加单分配", font=("SF Pro Display", 16, "bold"), bg="#2563EB", fg="white")
         action_title.pack()
         
-        action_desc = tk.Label(action_content, text="启动四阶段智能分配引擎，预计耗时 12s", font=("SF Pro Display", 11), bg="#2563EB", fg="#BFDBFE")
-        action_desc.pack(pady=(4, 12))
+        action_desc = tk.Label(action_content, text="启动四阶段智能分配引擎，预计耗时 12s", font=("SF Pro Display", 12), bg="#2563EB", fg="#BFDBFE")
+        action_desc.pack(pady=(4, 16))
         
-        self.run_btn = tk.Button(action_content, text="开始计算", font=("SF Pro Display", 13, "bold"), 
-                                 bg="#FFFFFF", fg="#2563EB", relief=tk.FLAT, padx=36, pady=10, 
+        self.run_btn = tk.Button(action_content, text="开始计算", font=("SF Pro Display", 14, "bold"), 
+                                 bg="#FFFFFF", fg="#2563EB", relief=tk.FLAT, padx=40, pady=12, 
                                  cursor="arrow", state=tk.DISABLED, command=self.run_allocation)
         self.run_btn.pack(pady=(0, 8))
         
-        self.save_btn = tk.Button(action_content, text="导出清单", font=("SF Pro Display", 13, "bold"), 
-                                  bg="#1D4ED8", fg="white", relief=tk.FLAT, padx=36, pady=10, 
+        self.save_btn = tk.Button(action_content, text="导出清单", font=("SF Pro Display", 14, "bold"), 
+                                  bg="#1D4ED8", fg="white", relief=tk.FLAT, padx=40, pady=12, 
                                   cursor="arrow", state=tk.DISABLED, command=self.save_result)
         self.save_btn.pack()
     
     def create_result_section(self, parent):
         result_card = self.create_card_frame(parent)
-        result_card.pack(fill=tk.X, pady=(0, 12))
+        result_card.pack(fill=tk.X, pady=(0, 16))
         
         header_frame = tk.Frame(result_card, bg="#FFFFFF")
         header_frame.pack(fill=tk.X, pady=14, padx=20)
@@ -680,9 +693,8 @@ class AllocationApp:
                 df_inventory, df_sales, df_store_level, df_add_order, config
             )
             
-            stage_order = [stage[1] for stage in self.stage_list[:3]]
             self.result_df, self.reason_df = generate_result_dataframe(
-                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_order
+                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
             )
             
             self.display_result()
@@ -690,11 +702,13 @@ class AllocationApp:
             self.update_status("✓ 分配完成", "#059669")
             self.save_btn.config(state=tk.NORMAL, cursor="hand2")
             
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
             self.root.after(100, lambda: messagebox.showinfo("成功", "加单分配完成"))
         except Exception as e:
             print(f"分配错误: {e}")
             traceback.print_exc()
             self.update_status(f"✗ 执行失败: {str(e)}", "#DC2626")
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
             self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"执行分配失败:\n{err}"))
     
     def display_result(self):
