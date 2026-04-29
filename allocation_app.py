@@ -565,7 +565,7 @@ class AllocationApp:
     
     def create_result_section(self, parent):
         result_card = self.create_card_frame(parent)
-        result_card.pack(fill=tk.BOTH, expand=True, pady=(0, 16))
+        result_card.pack(fill=tk.X, pady=(0, 16))
         
         header_frame = tk.Frame(result_card, bg="#FFFFFF")
         header_frame.pack(fill=tk.X, pady=14, padx=20)
@@ -576,7 +576,7 @@ class AllocationApp:
         icon_label = tk.Label(left_frame, text="📋", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
         icon_label.pack(side=tk.LEFT)
         
-        result_title = tk.Label(left_frame, text="分配结果预览", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
+        result_title = tk.Label(left_frame, text="分配结果预览（前20行）", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
         result_title.pack(side=tk.LEFT, padx=(8, 0))
         
         right_frame = tk.Frame(header_frame, bg="#FFFFFF")
@@ -587,18 +587,10 @@ class AllocationApp:
         export_btn.pack(side=tk.LEFT)
         
         tree_container = tk.Frame(result_card, bg="#FFFFFF")
-        tree_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 14))
+        tree_container.pack(fill=tk.X, padx=20, pady=(0, 14))
         
-        self.tree = ttk.Treeview(tree_container, show="headings")
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        
-        hscrollbar = ttk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.tree.xview)
-        hscrollbar.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
-        self.tree.configure(xscrollcommand=hscrollbar.set)
+        self.tree = ttk.Treeview(tree_container, show="headings", height=20)
+        self.tree.pack(fill=tk.X)
     
     def create_status_bar(self, parent):
         status_frame = tk.Frame(parent, bg="#FFFFFF")
