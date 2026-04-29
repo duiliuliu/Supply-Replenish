@@ -12,6 +12,8 @@ from allocation_core import allocate_add_order, generate_result_dataframe, DEFAU
 class AllocationApp:
     def __init__(self):
         try:
+            self.root = tk.Tk()
+            
             try:
                 self.config = load_config()
             except:
@@ -19,7 +21,6 @@ class AllocationApp:
             
             self.version = VERSION
             
-            self.root = tk.Tk()
             self.root.title(f"加单商品分配系统 v{self.version}")
             self.root.geometry("1100x900")
             self.root.minsize(1000, 800)
@@ -706,4 +707,10 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"启动错误: {e}")
         traceback.print_exc()
-        messagebox.showerror("启动错误", f"程序启动失败:\n{str(e)}")
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror("启动错误", f"程序启动失败:\n{str(e)}")
+            root.destroy()
+        except:
+            pass
