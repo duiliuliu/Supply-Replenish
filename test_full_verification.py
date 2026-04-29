@@ -293,11 +293,11 @@ print("=" * 70)
 
 print("\n6.1 测试generate_result_dataframe...")
 result_df, reason_df = generate_result_dataframe(
-    result1, reasons1, stores1, skus1, level_map1
+    result1, reasons1, stores1, skus1, level_map1, stage_priority1
 )
 
 print(f"  分配数量表行数: {len(result_df)} (期望: 5) {'✓' if len(result_df) == 5 else '✗'}")
-print(f"  分配原因表行数: {len(reason_df)} (期望: 5) {'✓' if len(reason_df) == 5 else '✗'}")
+print(f"  分配原因表行数: {len(reason_df)} (期望: 6) {'✓' if len(reason_df) == 6 else '✗'}")
 print(f"  分配原因表包含卖场等级列: {'✓' if '卖场等级' in reason_df.columns else '✗'}")
 
 # 检查总分配数量

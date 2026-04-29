@@ -201,7 +201,8 @@ class TestAllocationLogic(TestBase):
         self.assertIsNotNone(df_qty)
         self.assertIsNotNone(df_reason)
         self.assertEqual(len(df_qty), len(stores))
-        self.assertEqual(len(df_reason), len(stores))
+        # reason_df会多一行说明行
+        self.assertEqual(len(df_reason), len(stores) + 1)
         self.assertIn("卖场等级", df_reason.columns)
 
 
