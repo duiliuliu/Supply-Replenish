@@ -40,18 +40,18 @@ class AllocationApp:
             ]
             
             stage_names = {
-                "broken_size_fix": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                "sales_match": ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                "sell_through_priority": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                "broken_size_fix": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                "sales_match": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                "sell_through_priority": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             }
             
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             ]
             
-            remaining_stage = ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+            remaining_stage = ("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件")
             
             config_priority = self.config.get("allocation_config", {}).get("stage_priority", [])
             self.stage_list = []
@@ -131,6 +131,11 @@ class AllocationApp:
         
         subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
         subtitle_label.pack(anchor=tk.W, pady=(4, 0))
+        
+        # 打赏链接
+        donate_label = tk.Label(title_frame, text="❤️ 请作者喝杯咖啡", font=("SF Pro Display", 11), bg="#F5F7FA", fg="#EF4444", cursor="hand2")
+        donate_label.pack(anchor=tk.W, pady=(2, 0))
+        donate_label.bind("<Button-1>", self.open_donate)
         
         version_label = tk.Label(header_frame, text=f"v{self.version}", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
         version_label.pack(side=tk.RIGHT)
@@ -409,9 +414,9 @@ class AllocationApp:
             
             # 构建完整的阶段映射（包括所有可能的阶段名）
             all_stage_map = {
-                "断码修复": ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                "销量匹配": ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                "销尽率优先": ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
+                "断码修复": ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                "销量匹配": ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                "销尽率优先": ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
             }
             
             # 安全构建新的阶段列表
@@ -425,7 +430,7 @@ class AllocationApp:
                 messagebox.showerror("错误", "阶段构建失败，请重试")
                 return
             
-            new_stage_list.append(("remaining_allocation", "剩余分配", "尾量零散SKU随机填充"))
+            new_stage_list.append(("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件"))
             self.stage_list = new_stage_list
             
             # 更新配置
@@ -478,10 +483,10 @@ class AllocationApp:
     def reset_stage_order(self):
         try:
             default_stage_list = [
-                ("broken_size_fix", "断码修复", "优先填充缺码关键SKU"),
-                ("sales_match", "销量匹配", "依据历史销速加权分配"),
-                ("sell_through_priority", "销尽率优先", "高销尽门店获得补货权重"),
-                ("remaining_allocation", "剩余分配", "尾量零散SKU随机填充")
+                ("broken_size_fix", "断码修复", "SA/A级核心尺码至少2件，非核心尺码至少1件；其他等级核心尺码至少1件"),
+                ("sales_match", "销量匹配", "目标库存 = 平均日需求 × 覆盖周期 + 安全库存"),
+                ("sell_through_priority", "销尽率优先", "综合得分 = 销尽率 × 等级权重，降序分配"),
+                ("remaining_allocation", "剩余分配", "按等级优先级分配：SA → A → B → C → D → OL，单卖场上限10件")
             ]
             self.stage_list = default_stage_list.copy()
             
@@ -740,6 +745,10 @@ class AllocationApp:
                 messagebox.showinfo("成功", f"结果已保存到:\n{file_path}")
             except Exception as e:
                 messagebox.showerror("错误", f"保存结果失败:\n{str(e)}")
+    
+    def open_donate(self, event=None):
+        import webbrowser
+        webbrowser.open("https://www.example.com/donate")
 
 if __name__ == "__main__":
     try:
