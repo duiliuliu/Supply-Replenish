@@ -247,7 +247,8 @@ class AllocationApp:
                     self.config_entries[key][level].delete(0, tk.END)
                     self.config_entries[key][level].insert(0, str(val))
         
-        messagebox.showinfo("成功", "已恢复默认配置")
+        # 延迟显示消息框，避免 Mac Tkinter 崩溃
+        self.root.after(100, lambda: messagebox.showinfo("成功", "已恢复默认配置"))
     
     def save_config(self):
         from datetime import datetime
@@ -466,11 +467,13 @@ class AllocationApp:
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
-            messagebox.showinfo("成功", "阶段顺序已更新！")
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
+            self.root.after(100, lambda: messagebox.showinfo("成功", "阶段顺序已更新！"))
         except Exception as e:
             print(f"apply_stage_order error: {e}")
             traceback.print_exc()
-            messagebox.showerror("错误", f"应用顺序失败:\n{str(e)}")
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
+            self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"应用顺序失败:\n{err}"))
     
     def reset_stage_order(self):
         try:
@@ -521,11 +524,13 @@ class AllocationApp:
                     if i < len(self.stage_list):
                         var.set(self.stage_list[i][1])
             
-            messagebox.showinfo("成功", "已恢复默认阶段顺序！")
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
+            self.root.after(100, lambda: messagebox.showinfo("成功", "已恢复默认阶段顺序！"))
         except Exception as e:
             print(f"reset_stage_order error: {e}")
             traceback.print_exc()
-            messagebox.showerror("错误", f"恢复默认失败:\n{str(e)}")
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
+            self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"恢复默认失败:\n{err}"))
     
     def toggle_logic(self, event=None):
         if self.logic_expanded:
@@ -692,12 +697,14 @@ class AllocationApp:
             self.update_status("✓ 分配完成", "#059669")
             self.save_btn.config(state=tk.NORMAL, cursor="hand2")
             
-            messagebox.showinfo("成功", "加单分配完成")
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
+            self.root.after(100, lambda: messagebox.showinfo("成功", "加单分配完成"))
         except Exception as e:
             print(f"分配错误: {e}")
             traceback.print_exc()
             self.update_status(f"✗ 执行失败: {str(e)}", "#DC2626")
-            messagebox.showerror("错误", f"执行分配失败:\n{str(e)}")
+            # 延迟显示消息框，避免 Mac Tkinter 崩溃
+            self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"执行分配失败:\n{err}"))
     
     def display_result(self):
         if self.result_df is None or len(self.result_df) == 0:
