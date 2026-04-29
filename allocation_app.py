@@ -22,8 +22,8 @@ class AllocationApp:
             self.version = VERSION
             
             self.root.title(f"加单商品分配系统 v{self.version}")
-            self.root.geometry("1100x900")
-            self.root.minsize(1000, 800)
+            self.root.geometry("800x900")
+            self.root.minsize(750, 750)
             self.root.configure(bg="#F5F7FA")
             
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -99,17 +99,17 @@ class AllocationApp:
         
         canvas = tk.Canvas(main_container, bg="#F5F7FA", highlightthickness=0)
         scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#F5F7FA")
+        scrollable_frame = tk.Frame(canvas, bg="#F5F7FA", width=720)
         
         scrollable_frame.bind(
             "<Configure>",
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
         
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=720)
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        canvas.pack(side="left", fill="both", expand=True, padx=24, pady=20)
+        canvas.pack(side="left", fill="both", expand=True, padx=20, pady=16)
         scrollbar.pack(side="right", fill="y")
         
         self.create_header(scrollable_frame)
