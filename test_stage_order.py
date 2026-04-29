@@ -48,6 +48,12 @@ def count_allocation_reasons(reason_df, reason_type):
                 count += 1
     return count
 
+import pytest
+
+@pytest.fixture(params=['123', '213', '321', '132', '231', '312'])
+def order_str(request):
+    return request.param
+
 def test_stage_order(order_str):
     """测试指定阶段顺序"""
     order_map = {'1': 'broken_size_fix', '2': 'sales_match', '3': 'sell_through_priority'}
