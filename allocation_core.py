@@ -1,4 +1,4 @@
-# 加单分配核心逻辑 v2.3
+# 加单分配核心逻辑 v2.6.0
 import pandas as pd
 import json
 import os
@@ -6,7 +6,7 @@ import sys
 from collections import defaultdict
 
 DEFAULT_CONFIG = {
-    "version": "2.3",
+    "version": "2.6.0",
     "allocation_config": {
         "coverage_days": {
             "SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14

@@ -12,8 +12,15 @@ from allocation_core import allocate_add_order, generate_result_dataframe, DEFAU
 class AllocationApp:
     def __init__(self):
         try:
+            try:
+                self.config = load_config()
+            except:
+                self.config = DEFAULT_CONFIG
+            
+            self.version = self.config.get("version", DEFAULT_CONFIG.get("version", "2.6.0"))
+            
             self.root = tk.Tk()
-            self.root.title("加单商品分配系统 v2.6")
+            self.root.title(f"加单商品分配系统 v{self.version}")
             self.root.geometry("1100x900")
             self.root.minsize(1000, 800)
             self.root.configure(bg="#F5F7FA")
@@ -23,11 +30,6 @@ class AllocationApp:
             self.file_path = None
             self.result_df = None
             self.reason_df = None
-            
-            try:
-                self.config = load_config()
-            except:
-                self.config = DEFAULT_CONFIG
             
             self.stage_colors = [
                 ("#E8F5FF", "#2563EB"),
@@ -129,7 +131,7 @@ class AllocationApp:
         subtitle_label = tk.Label(title_frame, text="基于动态权重的库存补货与分配模型", font=("SF Pro Display", 14), bg="#F5F7FA", fg="#6B7280")
         subtitle_label.pack(anchor=tk.W, pady=(4, 0))
         
-        version_label = tk.Label(header_frame, text="v2.6", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
+        version_label = tk.Label(header_frame, text=f"v{self.version}", font=("SF Pro Display", 13), bg="#F5F7FA", fg="#9CA3AF")
         version_label.pack(side=tk.RIGHT)
     
     def create_card_frame(self, parent):
@@ -248,8 +250,8 @@ class AllocationApp:
     
     def save_config(self):
         config = {
-            "version": "2.6",
-            "updated_at": "2026-04-28",
+            "version": self.version,
+            "updated_at": "2026-04-29",
             "allocation_config": {
                 "coverage_days": {},
                 "level_weights": {},
