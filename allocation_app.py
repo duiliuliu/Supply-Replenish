@@ -381,7 +381,7 @@ class AllocationApp:
             stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
             stage_name_label.pack(pady=(0, 4))
             
-            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 10), bg=bg_color, fg="#6B7280", wraplength=280, justify=tk.LEFT)
             stage_desc_label.pack()
             
             self.stage_frames.append((stage_id, stage_frame))
@@ -689,12 +689,12 @@ class AllocationApp:
                 config["allocation_config"] = {}
             config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
             
-            allocation_result, allocation_reasons, stores_sorted, skus, store_level_map = allocate_add_order(
+            allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_priority = allocate_add_order(
                 df_inventory, df_sales, df_store_level, df_add_order, config
             )
             
             self.result_df, self.reason_df = generate_result_dataframe(
-                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
+                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_priority
             )
             
             self.display_result()
