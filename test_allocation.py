@@ -194,7 +194,7 @@ class TestAllocationLogic(TestBase):
             self.add_order_data
         )
         
-        df_qty, df_reason = generate_result_dataframe(
+        df_qty, df_reason, stage_header = generate_result_dataframe(
             result, reasons, stores, skus, level_map
         )
         
@@ -337,7 +337,7 @@ class TestIntegration(unittest.TestCase):
         )
         
         # 生成结果
-        df_qty, df_reason = generate_result_dataframe(
+        df_qty, df_reason, stage_header = generate_result_dataframe(
             result, reasons, stores, skus, level_map
         )
         

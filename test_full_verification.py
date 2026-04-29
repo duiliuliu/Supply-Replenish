@@ -292,7 +292,7 @@ print("验证6: 结果生成功能")
 print("=" * 70)
 
 print("\n6.1 测试generate_result_dataframe...")
-result_df, reason_df = generate_result_dataframe(
+result_df, reason_df, stage_header = generate_result_dataframe(
     result1, reasons1, stores1, skus1, level_map1
 )
 

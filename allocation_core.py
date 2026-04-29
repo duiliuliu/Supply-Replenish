@@ -390,7 +390,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
         traceback.print_exc()
         return defaultdict(lambda: defaultdict(int)), defaultdict(lambda: defaultdict(str)), [], [], {}
 
-def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None):
+def generate_result_dataframe(allocation_result, allocation_reasons, stores_sorted, skus, store_level_map=None, stage_order=None):
     try:
         data = []
         for store in stores_sorted:
@@ -399,6 +399,17 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
                 row[sku_info['sku']] = allocation_result[store][sku_info['sku']]
             data.append(row)
         df_quantity = pd.DataFrame(data)
+        
+        stage_order_header = None
+        if stage_order:
+            stage_name_map = {
+                'broken_size_fix': '断码修复',
+                'sales_match': '销量匹配',
+                'sell_through_priority': '销尽率优先',
+                'remaining_allocation': '剩余分配'
+            }
+            stage_names = [stage_name_map.get(s, s) for s in stage_order]
+            stage_order_header = '当前分配逻辑顺序：' + ' → '.join(stage_names)
         
         reason_data = []
         for store in stores_sorted:
@@ -409,9 +420,9 @@ def generate_result_dataframe(allocation_result, allocation_reasons, stores_sort
             reason_data.append(row)
         df_reason = pd.DataFrame(reason_data)
         
-        return df_quantity, df_reason
+        return df_quantity, df_reason, stage_order_header
     except Exception as e:
         print(f'Error in generate_result_dataframe: {e}')
         import traceback
         traceback.print_exc()
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), None

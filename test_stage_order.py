@@ -78,7 +78,7 @@ def test_stage_order(order_str):
         df_inventory, df_sales, df_store_level, df_add_order, config
     )
     
-    result_df, reason_df = generate_result_dataframe(
+    result_df, reason_df, stage_header = generate_result_dataframe(
         allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
     )
     

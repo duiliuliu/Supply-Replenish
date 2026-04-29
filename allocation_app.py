@@ -22,8 +22,8 @@ class AllocationApp:
             self.version = VERSION
             
             self.root.title(f"加单商品分配系统 v{self.version}")
-            self.root.geometry("1100x900")
-            self.root.minsize(1000, 800)
+            self.root.geometry("750x850")
+            self.root.minsize(700, 750)
             self.root.configure(bg="#F5F7FA")
             
             self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -31,6 +31,7 @@ class AllocationApp:
             self.file_path = None
             self.result_df = None
             self.reason_df = None
+            self.stage_order_header = None
             
             self.stage_colors = [
                 ("#E8F5FF", "#2563EB"),
@@ -357,39 +358,38 @@ class AllocationApp:
     
     def _create_stage_item(self, idx, stage_id, name, desc):
         try:
-            # 安全获取颜色，防止索引越界
             if idx < len(self.stage_colors):
                 bg_color, fg_color = self.stage_colors[idx]
             else:
-                # 使用最后一个颜色作为默认
                 bg_color, fg_color = self.stage_colors[-1] if self.stage_colors else ("#F5F5F5", "#666666")
             
-            stage_frame = tk.Frame(self.stages_container, bg=bg_color)
+            stage_frame = tk.Frame(self.stages_container, bg=bg_color, width=180)
             stage_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
-            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
+            stage_frame.pack(side=tk.LEFT, padx=(0 if idx == 0 else 12, 0))
+            stage_frame.pack_propagate(False)
             
             stage_content = tk.Frame(stage_frame, bg=bg_color)
-            stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+            stage_content.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
             
-            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
-            num_frame.pack(padx=8, pady=(0, 12))
+            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=28, height=28)
+            num_frame.pack(padx=4, pady=(0, 8))
             num_frame.pack_propagate(False)
             
-            num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg=fg_color)
+            num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 12, "bold"), bg="#FFFFFF", fg=fg_color)
             num_label.pack(fill=tk.BOTH, expand=True)
             
-            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
+            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 12, "bold"), bg=bg_color, fg="#1F2937")
             stage_name_label.pack(pady=(0, 4))
             
-            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
-            stage_desc_label.pack()
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 10), bg=bg_color, fg="#6B7280", wraplength=140, justify="left")
+            stage_desc_label.pack(fill=tk.X)
             
             self.stage_frames.append((stage_id, stage_frame))
             
             if idx < 3:
-                arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=24)
+                arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=20)
                 arrow_frame.pack(side=tk.LEFT)
-                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
+                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 14), bg="#FFFFFF", fg="#D1D5DB")
                 arrow_label.pack(fill=tk.BOTH, expand=True)
         except Exception as e:
             print(f"_create_stage_item error for idx {idx}: {e}")
@@ -693,8 +693,10 @@ class AllocationApp:
                 df_inventory, df_sales, df_store_level, df_add_order, config
             )
             
-            self.result_df, self.reason_df = generate_result_dataframe(
-                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
+            stage_order = [stage[0] for stage in self.stage_list]
+            
+            self.result_df, self.reason_df, self.stage_order_header = generate_result_dataframe(
+                allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_order
             )
             
             self.display_result()
@@ -741,7 +743,14 @@ class AllocationApp:
             try:
                 with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
                     self.result_df.to_excel(writer, sheet_name="分配数量", index=False)
-                    self.reason_df.to_excel(writer, sheet_name="分配原因", index=False)
+                    
+                    if self.stage_order_header:
+                        header_df = pd.DataFrame([[self.stage_order_header]])
+                        header_df.to_excel(writer, sheet_name="分配原因", index=False, header=False, startrow=0)
+                        self.reason_df.to_excel(writer, sheet_name="分配原因", index=False, startrow=2)
+                    else:
+                        self.reason_df.to_excel(writer, sheet_name="分配原因", index=False)
+                        
                 messagebox.showinfo("成功", f"结果已保存到:\n{file_path}")
             except Exception as e:
                 messagebox.showerror("错误", f"保存结果失败:\n{str(e)}")
