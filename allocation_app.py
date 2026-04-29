@@ -350,35 +350,45 @@ class AllocationApp:
             self._create_stage_item(i, stage_id, name, desc)
     
     def _create_stage_item(self, idx, stage_id, name, desc):
-        bg_color, fg_color = self.stage_colors[idx]
-        
-        stage_frame = tk.Frame(self.stages_container, bg=bg_color)
-        stage_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
-        stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
-        
-        stage_content = tk.Frame(stage_frame, bg=bg_color)
-        stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
-        
-        num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
-        num_frame.pack(padx=8, pady=(0, 12))
-        num_frame.pack_propagate(False)
-        
-        num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg=fg_color)
-        num_label.pack(fill=tk.BOTH, expand=True)
-        
-        stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
-        stage_name_label.pack(pady=(0, 4))
-        
-        stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
-        stage_desc_label.pack()
-        
-        self.stage_frames.append((stage_id, stage_frame))
-        
-        if idx < 3:
-            arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=24)
-            arrow_frame.pack(side=tk.LEFT)
-            arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
-            arrow_label.pack(fill=tk.BOTH, expand=True)
+        try:
+            # 安全获取颜色，防止索引越界
+            if idx < len(self.stage_colors):
+                bg_color, fg_color = self.stage_colors[idx]
+            else:
+                # 使用最后一个颜色作为默认
+                bg_color, fg_color = self.stage_colors[-1] if self.stage_colors else ("#F5F5F5", "#666666")
+            
+            stage_frame = tk.Frame(self.stages_container, bg=bg_color)
+            stage_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
+            stage_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0 if idx == 0 else 12, 0))
+            
+            stage_content = tk.Frame(stage_frame, bg=bg_color)
+            stage_content.pack(fill=tk.BOTH, expand=True, padx=16, pady=16)
+            
+            num_frame = tk.Frame(stage_content, bg="#FFFFFF", width=32, height=32)
+            num_frame.pack(padx=8, pady=(0, 12))
+            num_frame.pack_propagate(False)
+            
+            num_label = tk.Label(num_frame, text=str(idx+1), font=("SF Pro Display", 14, "bold"), bg="#FFFFFF", fg=fg_color)
+            num_label.pack(fill=tk.BOTH, expand=True)
+            
+            stage_name_label = tk.Label(stage_content, text=name, font=("SF Pro Display", 13, "bold"), bg=bg_color, fg="#1F2937")
+            stage_name_label.pack(pady=(0, 4))
+            
+            stage_desc_label = tk.Label(stage_content, text=desc, font=("SF Pro Display", 11), bg=bg_color, fg="#6B7280")
+            stage_desc_label.pack()
+            
+            self.stage_frames.append((stage_id, stage_frame))
+            
+            if idx < 3:
+                arrow_frame = tk.Frame(self.stages_container, bg="#FFFFFF", width=24)
+                arrow_frame.pack(side=tk.LEFT)
+                arrow_label = tk.Label(arrow_frame, text="→", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#D1D5DB")
+                arrow_label.pack(fill=tk.BOTH, expand=True)
+        except Exception as e:
+            print(f"_create_stage_item error for idx {idx}: {e}")
+            import traceback
+            traceback.print_exc()
     
     def apply_stage_order(self):
         try:
@@ -424,19 +434,31 @@ class AllocationApp:
             
             # 安全更新阶段显示
             if hasattr(self, 'stages_container') and self.stages_container:
-                for widget in self.stages_container.winfo_children():
-                    try:
-                        widget.destroy()
-                    except:
-                        pass
+                try:
+                    for widget in self.stages_container.winfo_children():
+                        try:
+                            widget.destroy()
+                        except:
+                            pass
+                except Exception as e:
+                    print(f"清理阶段容器失败: {e}")
             
             self.stage_frames = []
             
-            for i, (stage_id, name, desc) in enumerate(self.stage_list):
-                try:
-                    self._create_stage_item(i, stage_id, name, desc)
-                except Exception as e:
-                    print(f"创建阶段 {i} 失败: {e}")
+            # 确保 stages_container 存在
+            if not hasattr(self, 'stages_container') or not self.stages_container:
+                print("警告: stages_container 不存在，尝试重建")
+                if hasattr(self, 'logic_content') and self.logic_content:
+                    self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
+                    self.stages_container.pack(fill=tk.X, pady=(12, 0))
+            
+            # 只在 stages_container 存在时创建阶段项
+            if hasattr(self, 'stages_container') and self.stages_container:
+                for i, (stage_id, name, desc) in enumerate(self.stage_list):
+                    try:
+                        self._create_stage_item(i, stage_id, name, desc)
+                    except Exception as e:
+                        print(f"创建阶段 {i} 失败: {e}")
             
             # 安全更新下拉框显示为新的顺序
             if hasattr(self, 'stage_vars'):
@@ -467,19 +489,31 @@ class AllocationApp:
             
             # 安全更新阶段显示
             if hasattr(self, 'stages_container') and self.stages_container:
-                for widget in self.stages_container.winfo_children():
-                    try:
-                        widget.destroy()
-                    except:
-                        pass
+                try:
+                    for widget in self.stages_container.winfo_children():
+                        try:
+                            widget.destroy()
+                        except:
+                            pass
+                except Exception as e:
+                    print(f"清理阶段容器失败: {e}")
             
             self.stage_frames = []
             
-            for i, (stage_id, name, desc) in enumerate(self.stage_list):
-                try:
-                    self._create_stage_item(i, stage_id, name, desc)
-                except Exception as e:
-                    print(f"创建阶段 {i} 失败: {e}")
+            # 确保 stages_container 存在
+            if not hasattr(self, 'stages_container') or not self.stages_container:
+                print("警告: stages_container 不存在，尝试重建")
+                if hasattr(self, 'logic_content') and self.logic_content:
+                    self.stages_container = tk.Frame(self.logic_content, bg="#FFFFFF")
+                    self.stages_container.pack(fill=tk.X, pady=(12, 0))
+            
+            # 只在 stages_container 存在时创建阶段项
+            if hasattr(self, 'stages_container') and self.stages_container:
+                for i, (stage_id, name, desc) in enumerate(self.stage_list):
+                    try:
+                        self._create_stage_item(i, stage_id, name, desc)
+                    except Exception as e:
+                        print(f"创建阶段 {i} 失败: {e}")
             
             # 安全更新下拉框显示为新的顺序
             if hasattr(self, 'stage_vars'):
