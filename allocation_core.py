@@ -3,8 +3,15 @@ import pandas as pd
 import json
 import os
 import sys
-import tomllib
 from collections import defaultdict
+
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
 
 def get_version():
     """从 pyproject.toml 读取版本号"""
@@ -30,11 +37,21 @@ def get_version():
         for pyproject_path in pyproject_paths:
             try:
                 if os.path.exists(pyproject_path):
-                    with open(pyproject_path, 'rb') as f:
-                        data = tomllib.load(f)
-                        version = data.get('project', {}).get('version', '2.6.0')
-                        print(f'Loaded version from {pyproject_path}: {version}')
-                        return version
+                    if tomllib is not None:
+                        with open(pyproject_path, 'rb') as f:
+                            data = tomllib.load(f)
+                            version = data.get('project', {}).get('version', '2.6.0')
+                            print(f'Loaded version from {pyproject_path}: {version}')
+                            return version
+                    else:
+                        import re
+                        with open(pyproject_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
+                            if match:
+                                version = match.group(1)
+                                print(f'Loaded version from {pyproject_path}: {version}')
+                                return version
             except Exception as e:
                 continue
         
