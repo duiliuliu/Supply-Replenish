@@ -56,7 +56,6 @@ def test_stage_order(order_str):
     stage_priority = [stage_names[i] for i in order]
     
     config = {
-        "version": "2.6.0",
         "allocation_config": {
             "coverage_days": {"SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14},
             "level_weights": {"SA": 1.5, "A": 1.3, "B": 1.2, "C": 1.1, "D": 1.1, "OL": 1.0},

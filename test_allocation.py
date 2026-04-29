@@ -79,7 +79,6 @@ class TestConfigLoading(TestBase):
         config_file = os.path.join(temp_dir, "allocation_config.json")
         
         test_config = {
-            "version": "2.3",
             "allocation_config": {
                 "coverage_days": {"SA": 30, "A": 28, "B": 14},
                 "level_weights": {"SA": 1.8, "A": 1.5, "B": 1.0},

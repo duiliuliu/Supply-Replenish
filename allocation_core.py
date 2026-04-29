@@ -46,7 +46,6 @@ def get_version():
 VERSION = get_version()
 
 DEFAULT_CONFIG = {
-    "version": VERSION,
     "allocation_config": {
         "coverage_days": {
             "SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14

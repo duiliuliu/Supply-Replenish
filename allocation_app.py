@@ -249,9 +249,9 @@ class AllocationApp:
         messagebox.showinfo("成功", "已恢复默认配置")
     
     def save_config(self):
+        from datetime import datetime
         config = {
-            "version": self.version,
-            "updated_at": "2026-04-29",
+            "updated_at": datetime.now().strftime("%Y-%m-%d"),
             "allocation_config": {
                 "coverage_days": {},
                 "level_weights": {},
