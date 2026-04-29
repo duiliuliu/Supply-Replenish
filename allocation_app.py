@@ -263,13 +263,16 @@ class AllocationApp:
         save_btn.pack(side=tk.RIGHT, padx=(12, 0))
     
     def toggle_config(self, event=None):
-        if self.config_expanded:
-            self.config_content.pack_forget()
-            self.config_toggle.config(text="▶")
-        else:
-            self.config_content.pack(fill=tk.X, padx=20)
-            self.config_toggle.config(text="▼")
-        self.config_expanded = not self.config_expanded
+        try:
+            if self.config_expanded:
+                self.config_content.pack_forget()
+                self.config_toggle.config(text="▶")
+            else:
+                self.config_content.pack(fill=tk.X, padx=20)
+                self.config_toggle.config(text="▼")
+            self.config_expanded = not self.config_expanded
+        except Exception as e:
+            print(f"toggle_config error: {e}")
     
     def reset_config(self):
         sections = [("coverage_days", {"SA": 30, "A": 30, "B": 14, "C": 14, "D": 14, "OL": 14}),
@@ -566,13 +569,16 @@ class AllocationApp:
             self.safe_messagebox('error', "错误", f"恢复默认失败:\n{str(e)}")
     
     def toggle_logic(self, event=None):
-        if self.logic_expanded:
-            self.logic_content.pack_forget()
-            self.logic_toggle.config(text="▶")
-        else:
-            self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
-            self.logic_toggle.config(text="▼")
-        self.logic_expanded = not self.logic_expanded
+        try:
+            if self.logic_expanded:
+                self.logic_content.pack_forget()
+                self.logic_toggle.config(text="▶")
+            else:
+                self.logic_content.pack(fill=tk.X, padx=20, pady=(0, 14))
+                self.logic_toggle.config(text="▼")
+            self.logic_expanded = not self.logic_expanded
+        except Exception as e:
+            print(f"toggle_logic error: {e}")
     
     def create_file_upload_section(self, parent):
         upload_frame = tk.Frame(parent, bg="#F5F7FA")
