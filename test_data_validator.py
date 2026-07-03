@@ -196,9 +196,9 @@ def test_validate_sheet_data_errors():
     })
 
     result = validate_sheet(df, '库存')
-    assert result.has_errors, "负数库存应报错"
-    assert any('负数' in e['message'] for e in result.errors), "应提示负数错误"
-    assert any(e.get('fixable') for e in result.errors), "负数错误应可修复"
+    assert result.has_warnings, "负数库存应报警告"
+    assert any('负数' in w['message'] for w in result.warnings), "应提示负数警告"
+    assert any(w.get('fixable') for w in result.warnings), "负数警告应可修复"
     print("  ✓ 负数库存验证通过")
 
     # 非数字库存
@@ -261,7 +261,9 @@ def test_fix_errors():
     })
 
     result = validate_sheet(df, '库存')
-    fixed_df, fix_records = fix_errors(df, result.errors, '库存')
+    # 负数现在是warnings而非errors，从warnings中获取可修复项
+    all_issues = result.errors + result.warnings
+    fixed_df, fix_records = fix_errors(df, all_issues, '库存')
 
     assert len(fix_records) == 1, f"应有1条修复记录: {fix_records}"
     assert fixed_df.iloc[1]['库存数量'] == 0, "负数应修复为0"

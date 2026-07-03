@@ -341,17 +341,20 @@ def _fuzzy_match_column(actual_columns, required_column, sheet_name):
     return None
 
 
-def validate_sheet(df, sheet_type):
+def validate_sheet(df, sheet_type, policies=None):
     """
     验证单个工作表
 
     Args:
         df: DataFrame - 工作表数据
         sheet_type: str - 工作表类型（库存/销售/卖场等级/加单数量）
+        policies: dict - 负数处理策略，key为'sales'和'inventory'，value为'zero'或'original'
 
     Returns:
         ValidationResult - 验证结果
     """
+    if policies is None:
+        policies = {'sales': 'zero', 'inventory': 'zero'}
     result = ValidationResult()
 
     if df is None or df.empty:
@@ -393,9 +396,9 @@ def validate_sheet(df, sheet_type):
         row_num = index + 2  # Excel行号（从2开始，1是表头）
 
         if sheet_type == '库存':
-            _validate_inventory_row(result, row, column_mapping, row_num)
+            _validate_inventory_row(result, row, column_mapping, row_num, policy=policies.get('inventory', 'zero'))
         elif sheet_type == '销售':
-            _validate_sales_row(result, row, column_mapping, row_num)
+            _validate_sales_row(result, row, column_mapping, row_num, policy=policies.get('sales', 'zero'))
         elif sheet_type == '卖场等级':
             _validate_store_level_row(result, row, column_mapping, row_num)
         elif sheet_type == '加单数量':
@@ -404,7 +407,7 @@ def validate_sheet(df, sheet_type):
     return result
 
 
-def _validate_inventory_row(result, row, column_mapping, row_num):
+def _validate_inventory_row(result, row, column_mapping, row_num, policy="zero"):
     """验证库存表数据行"""
     sheet = '库存'
     store_col = column_mapping['卖场代码']
@@ -429,12 +432,19 @@ def _validate_inventory_row(result, row, column_mapping, row_num):
         try:
             qty_num = float(qty_val)
             if qty_num < 0:
-                result.add_error(
-                    sheet, row_num, '库存数量',
-                    f"库存数量为负数 ({qty_num})",
-                    fixable=True,
-                    fix_action=f"set_zero:{qty_col}"
-                )
+                if policy == "zero":
+                    result.add_warning(
+                        sheet, row_num, '库存数量',
+                        f"库存数量为负数 ({qty_num})，将按0处理",
+                        fixable=True,
+                        fix_action=f"set_zero:{qty_col}"
+                    )
+                else:
+                    result.add_warning(
+                        sheet, row_num, '库存数量',
+                        f"库存数量为负数 ({qty_num})，将按原值处理",
+                        fixable=False
+                    )
             elif qty_num != int(qty_num):
                 result.add_warning(
                     sheet, row_num, '库存数量',
@@ -456,7 +466,7 @@ def _validate_inventory_row(result, row, column_mapping, row_num):
             )
 
 
-def _validate_sales_row(result, row, column_mapping, row_num):
+def _validate_sales_row(result, row, column_mapping, row_num, policy="zero"):
     """验证销售表数据行"""
     sheet = '销售'
     barcode_col = column_mapping['条码.条码']
@@ -478,12 +488,19 @@ def _validate_sales_row(result, row, column_mapping, row_num):
         try:
             qty_num = float(qty_val)
             if qty_num < 0:
-                result.add_error(
-                    sheet, row_num, '数量',
-                    f"销售数量为负数 ({qty_num})",
-                    fixable=True,
-                    fix_action=f"set_zero:{qty_col}"
-                )
+                if policy == "zero":
+                    result.add_warning(
+                        sheet, row_num, '数量',
+                        f"销售数量为负数 ({qty_num})，将按0处理",
+                        fixable=True,
+                        fix_action=f"set_zero:{qty_col}"
+                    )
+                else:
+                    result.add_warning(
+                        sheet, row_num, '数量',
+                        f"销售数量为负数 ({qty_num})，将按原值处理",
+                        fixable=False
+                    )
             elif qty_num != int(qty_num):
                 result.add_warning(
                     sheet, row_num, '数量',
@@ -632,7 +649,7 @@ def detect_sales_type(df_sales):
         return {'type': 'unknown', 'confidence': 0, 'message': f'检测失败: {e}'}
 
 
-def validate_file(file_path, data_frames=None):
+def validate_file(file_path, data_frames=None, policies=None):
     """
     验证Excel文件的三级验证
 
@@ -640,10 +657,13 @@ def validate_file(file_path, data_frames=None):
         file_path: str - Excel文件路径
         data_frames: dict or None - 预加载的DataFrame字典，键为sheet名。
                                    如果为None，则从文件读取。
+        policies: dict - 负数处理策略，key为'sales'和'inventory'，value为'zero'或'original'
 
     Returns:
         tuple - (ValidationResult, dict of DataFrames)
     """
+    if policies is None:
+        policies = {'sales': 'zero', 'inventory': 'zero'}
     result = ValidationResult()
     dfs = {}
 
@@ -682,7 +702,7 @@ def validate_file(file_path, data_frames=None):
     # 验证各工作表
     for sheet_name in REQUIRED_SHEETS.values():
         if sheet_name in dfs:
-            sheet_result = validate_sheet(dfs[sheet_name], sheet_name)
+            sheet_result = validate_sheet(dfs[sheet_name], sheet_name, policies=policies)
             # 合并验证结果
             result.passed.extend(sheet_result.passed)
             result.warnings.extend(sheet_result.warnings)

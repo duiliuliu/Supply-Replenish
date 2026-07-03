@@ -236,7 +236,37 @@ class AllocationApp:
         
         note_label = tk.Label(self.config_content, text="注: 确保即使销量为0，卖场也能获得基础库存。", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#9CA3AF")
         note_label.pack(anchor=tk.E)
-        
+
+        # 负数处理策略配置
+        policy_frame = tk.Frame(self.config_content, bg="#FFFFFF")
+        policy_frame.pack(fill=tk.X, pady=(12, 0))
+
+        tk.Label(policy_frame, text="负数处理策略:", font=("SF Pro Display", 12, "bold"), bg="#FFFFFF", fg="#1F2937").pack(side=tk.LEFT)
+
+        # 销量负数策略
+        sales_policy_frame = tk.Frame(policy_frame, bg="#FFFFFF")
+        sales_policy_frame.pack(side=tk.LEFT, padx=(20, 0))
+        tk.Label(sales_policy_frame, text="销量负数:", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#6B7280").pack(side=tk.LEFT)
+        self.sales_policy_var = tk.StringVar(value="zero")
+        sales_zero_rb = tk.Radiobutton(sales_policy_frame, text="按0处理", variable=self.sales_policy_var, value="zero",
+                                        font=("SF Pro Display", 11), bg="#FFFFFF", fg="#4B5563", cursor="hand2")
+        sales_zero_rb.pack(side=tk.LEFT, padx=(6, 8))
+        sales_original_rb = tk.Radiobutton(sales_policy_frame, text="按原值", variable=self.sales_policy_var, value="original",
+                                            font=("SF Pro Display", 11), bg="#FFFFFF", fg="#4B5563", cursor="hand2")
+        sales_original_rb.pack(side=tk.LEFT)
+
+        # 库存负数策略
+        inv_policy_frame = tk.Frame(policy_frame, bg="#FFFFFF")
+        inv_policy_frame.pack(side=tk.LEFT, padx=(20, 0))
+        tk.Label(inv_policy_frame, text="库存负数:", font=("SF Pro Display", 11), bg="#FFFFFF", fg="#6B7280").pack(side=tk.LEFT)
+        self.inv_policy_var = tk.StringVar(value="zero")
+        inv_zero_rb = tk.Radiobutton(inv_policy_frame, text="按0处理", variable=self.inv_policy_var, value="zero",
+                                      font=("SF Pro Display", 11), bg="#FFFFFF", fg="#4B5563", cursor="hand2")
+        inv_zero_rb.pack(side=tk.LEFT, padx=(6, 8))
+        inv_original_rb = tk.Radiobutton(inv_policy_frame, text="按原值", variable=self.inv_policy_var, value="original",
+                                          font=("SF Pro Display", 11), bg="#FFFFFF", fg="#4B5563", cursor="hand2")
+        inv_original_rb.pack(side=tk.LEFT)
+
         btn_frame = tk.Frame(self.config_content, bg="#FFFFFF")
         btn_frame.pack(fill=tk.X, pady=(12, 8))
         
@@ -268,6 +298,12 @@ class AllocationApp:
                 if key in self.config_entries and level in self.config_entries[key]:
                     self.config_entries[key][level].delete(0, tk.END)
                     self.config_entries[key][level].insert(0, str(val))
+
+        # 重置负数处理策略
+        if hasattr(self, 'sales_policy_var'):
+            self.sales_policy_var.set("zero")
+        if hasattr(self, 'inv_policy_var'):
+            self.inv_policy_var.set("zero")
         
         # 延迟显示消息框，避免 Mac Tkinter 崩溃
         self.root.after(100, lambda: messagebox.showinfo("成功", "已恢复默认配置"))
@@ -282,7 +318,9 @@ class AllocationApp:
                 "safety_factors": {},
                 "min_target_inventory": {},
                 "stage_priority": [stage[0] for stage in self.stage_list[:3]],
-                "max_remaining_per_store": 10
+                "max_remaining_per_store": 10,
+                "negative_sales_policy": self.sales_policy_var.get() if hasattr(self, 'sales_policy_var') else "zero",
+                "negative_inventory_policy": self.inv_policy_var.get() if hasattr(self, 'inv_policy_var') else "zero"
             }
         }
         
@@ -738,7 +776,11 @@ class AllocationApp:
             self.update_status("● 数据验证中...", "#D97706")
             self.root.update()
 
-            validation_result, dfs = validate_file(self.file_path, data_frames=dfs)
+            policies = {
+                'sales': self.sales_policy_var.get() if hasattr(self, 'sales_policy_var') else "zero",
+                'inventory': self.inv_policy_var.get() if hasattr(self, 'inv_policy_var') else "zero"
+            }
+            validation_result, dfs = validate_file(self.file_path, data_frames=dfs, policies=policies)
 
             # 如果存在错误或警告，显示验证报告
             if validation_result.has_errors or validation_result.has_warnings:

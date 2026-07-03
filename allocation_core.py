@@ -82,7 +82,9 @@ DEFAULT_CONFIG = {
             "sales_match",
             "sell_through_priority"
         ],
-        "max_remaining_per_store": 10
+        "max_remaining_per_store": 10,
+        "negative_sales_policy": "zero",
+        "negative_inventory_policy": "zero"
     }
 }
 
@@ -128,10 +130,11 @@ def load_config():
     print('Using default config')
     return DEFAULT_CONFIG
 
-def get_30day_sales(df_sales, sku, store_code):
+def get_30day_sales(df_sales, sku, store_code, policy="zero"):
     try:
         df_filtered = df_sales[(df_sales['条码.条码'] == sku) & (df_sales['店仓.卖场代码'] == store_code)].copy()
-        df_filtered['数量'] = df_filtered['数量'].apply(lambda x: max(0, x))
+        if policy == "zero":
+            df_filtered['数量'] = df_filtered['数量'].apply(lambda x: max(0, x))
         return df_filtered['数量'].sum()
     except Exception as e:
         return 0
@@ -154,11 +157,14 @@ def get_store_level(df_store_level, store_code):
         print(f'Warning: Error getting store level for {store_code}: {e}')
     return 'C'
 
-def get_inventory(df_inventory, store_code, sku):
+def get_inventory(df_inventory, store_code, sku, policy="zero"):
     try:
         filtered = df_inventory[(df_inventory['卖场代码'] == store_code) & (df_inventory['条码'] == sku)]
         if len(filtered) > 0:
-            return max(0, int(filtered.iloc[0]['库存数量']))
+            value = int(filtered.iloc[0]['库存数量'])
+            if policy == "zero":
+                return max(0, value)
+            return value
     except Exception as e:
         print(f'Warning: Error getting inventory for {store_code} - {sku}: {e}')
     return 0
@@ -396,6 +402,8 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
         min_target_inventory = alloc_config.get('min_target_inventory', DEFAULT_CONFIG['allocation_config']['min_target_inventory'])
         stage_priority = alloc_config.get('stage_priority', DEFAULT_CONFIG['allocation_config']['stage_priority'])
         max_remaining_per_store = alloc_config.get('max_remaining_per_store', 10)
+        negative_sales_policy = alloc_config.get('negative_sales_policy', 'zero')
+        negative_inventory_policy = alloc_config.get('negative_inventory_policy', 'zero')
 
         # 如果传入了tracker，保存配置快照
         if tracker is not None:
@@ -437,8 +445,8 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
 
             store_data = {}
             for store in stores_sorted:
-                inv = get_inventory(df_inventory, store, sku)
-                sales_30d = get_30day_sales(df_sales, sku, store)
+                inv = get_inventory(df_inventory, store, sku, policy=negative_inventory_policy)
+                sales_30d = get_30day_sales(df_sales, sku, store, policy=negative_sales_policy)
                 level = get_store_level(df_store_level, store)
 
                 total = sales_30d + inv
