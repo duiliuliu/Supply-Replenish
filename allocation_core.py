@@ -1,9 +1,10 @@
-# 加单分配核心逻辑 v2.6.0
+# 加单分配核心逻辑 v2.7.0
 import pandas as pd
 import json
 import os
 import sys
 from collections import defaultdict
+from calculation_tracker import CalculationTracker
 
 try:
     import tomllib
@@ -162,7 +163,7 @@ def get_inventory(df_inventory, store_code, sku):
         print(f'Warning: Error getting inventory for {store_code} - {sku}: {e}')
     return 0
 
-def stage_broken_size_fix(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty):
+def stage_broken_size_fix(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, tracker=None):
     """阶段1: 断码修复"""
     try:
         for store in stores_sorted:
@@ -171,7 +172,7 @@ def stage_broken_size_fix(stores_sorted, store_data, sku, allocation_result, all
             current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
             size = extract_size(sku)
             level = store_data[store]['level']
-            
+
             target = 0
             if level in ['SA', 'A']:
                 if is_core_size(size):
@@ -181,11 +182,11 @@ def stage_broken_size_fix(stores_sorted, store_data, sku, allocation_result, all
             else:
                 if is_core_size(size):
                     target = 1
-            
+
             if current_inv < target:
                 to_allocate = target - current_inv
                 to_allocate = min(to_allocate, remaining_qty)
-                
+
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
@@ -193,37 +194,55 @@ def stage_broken_size_fix(stores_sorted, store_data, sku, allocation_result, all
                         allocation_reasons[store][sku] += f',断码修复({to_allocate})'
                     else:
                         allocation_reasons[store][sku] = f'断码修复({to_allocate})'
+
+                    # 记录追踪信息
+                    if tracker is not None:
+                        tracker.record_allocation(store, level, sku, to_allocate, f'断码修复({to_allocate})')
+                        detail_items = [
+                            {'name': '尺码', 'expression': str(size), 'value': f'{size}({"核心尺码" if is_core_size(size) else "非核心尺码"})'},
+                            {'name': '卖场等级', 'expression': level, 'value': level},
+                            {'name': '目标库存', 'expression': f'{level}级{"核心" if is_core_size(size) else "非核心"}尺码目标', 'value': f'{target}件'},
+                            {'name': '当前库存', 'expression': '初始库存 + 已分配', 'value': f'{current_inv}件'},
+                            {'name': '分配数量', 'expression': f'min({target} - {current_inv}, {remaining_qty + to_allocate})', 'value': f'{to_allocate}件'}
+                        ]
+                        tracker.record_store_detail(
+                            store, level, sku, 'broken_size_fix',
+                            store_data[store]['inventory'],
+                            store_data[store]['sales_30d'],
+                            store_data[store]['sell_through'],
+                            detail_items, to_allocate
+                        )
         return remaining_qty
     except Exception as e:
         print(f'Warning: Error in broken size fix stage: {e}')
         return remaining_qty
 
-def stage_sales_match(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, 
-                     coverage_days, safety_factors, min_target_inventory):
+def stage_sales_match(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty,
+                     coverage_days, safety_factors, min_target_inventory, tracker=None):
     """阶段2: 销量匹配（基于供应链公式）"""
     try:
         for store in stores_sorted:
             if remaining_qty <= 0:
                 break
-            
+
             level = store_data[store]['level']
             sales_30d = store_data[store]['sales_30d']
             daily_demand = sales_30d / 30
-            
+
             coverage = coverage_days.get(level, 14)
             safety_factor = safety_factors.get(level, 0.3)
             safety_stock = daily_demand * safety_factor * coverage
             target_inv = int(daily_demand * coverage + safety_stock)
-            
+
             min_target = min_target_inventory.get(level, 0)
             target_inv = max(target_inv, min_target)
-            
+
             current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
-            
+
             if current_inv < target_inv:
                 to_allocate = target_inv - current_inv
                 to_allocate = min(to_allocate, remaining_qty)
-                
+
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
@@ -231,12 +250,32 @@ def stage_sales_match(stores_sorted, store_data, sku, allocation_result, allocat
                         allocation_reasons[store][sku] += f',销量匹配({to_allocate})'
                     else:
                         allocation_reasons[store][sku] = f'销量匹配({to_allocate})'
+
+                    # 记录追踪信息
+                    if tracker is not None:
+                        tracker.record_allocation(store, level, sku, to_allocate, f'销量匹配({to_allocate})')
+                        detail_items = [
+                            {'name': '30天销量', 'expression': '历史销售数据', 'value': f'{sales_30d}件'},
+                            {'name': '平均日需求', 'expression': f'{sales_30d} ÷ 30', 'value': f'{daily_demand:.2f}件/天'},
+                            {'name': '覆盖周期', 'expression': f'{level}级', 'value': f'{coverage}天'},
+                            {'name': '安全系数', 'expression': f'{level}级', 'value': f'{safety_factor}'},
+                            {'name': '安全库存', 'expression': f'{daily_demand:.2f} × {safety_factor} × {coverage}', 'value': f'{safety_stock:.1f}件'},
+                            {'name': '目标库存', 'expression': f'max({daily_demand:.2f} × {coverage} + {safety_stock:.1f}, {min_target})', 'value': f'{target_inv}件'},
+                            {'name': '当前库存', 'expression': '初始库存 + 已分配', 'value': f'{current_inv}件'},
+                            {'name': '分配数量', 'expression': f'min({target_inv} - {current_inv}, {remaining_qty + to_allocate})', 'value': f'{to_allocate}件'}
+                        ]
+                        tracker.record_store_detail(
+                            store, level, sku, 'sales_match',
+                            store_data[store]['inventory'],
+                            sales_30d, store_data[store]['sell_through'],
+                            detail_items, to_allocate
+                        )
         return remaining_qty
     except Exception as e:
         print(f'Warning: Error in sales match stage: {e}')
         return remaining_qty
 
-def stage_sell_through_priority(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, level_weights):
+def stage_sell_through_priority(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, level_weights, tracker=None):
     """阶段3: 销尽率优先分配（所有等级参与，按权重排序）"""
     try:
         all_stores_with_score = []
@@ -246,23 +285,23 @@ def stage_sell_through_priority(stores_sorted, store_data, sku, allocation_resul
             weight = level_weights.get(level, 1.0)
             weighted_score = sell_through * weight
             all_stores_with_score.append((store, weighted_score, level))
-        
+
         all_stores_with_score.sort(key=lambda x: x[1], reverse=True)
-        
+
         for store, score, level in all_stores_with_score:
             if remaining_qty <= 0:
                 break
-            
+
             sales_30d = store_data[store]['sales_30d']
             current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
             weight = level_weights.get(level, 1.0)
-            
+
             max_for_store = max(int(sales_30d * weight), 2)
-            
+
             if current_inv < max_for_store:
                 to_allocate = max_for_store - current_inv
                 to_allocate = min(to_allocate, remaining_qty)
-                
+
                 if to_allocate > 0:
                     allocation_result[store][sku] += to_allocate
                     remaining_qty -= to_allocate
@@ -270,32 +309,52 @@ def stage_sell_through_priority(stores_sorted, store_data, sku, allocation_resul
                         allocation_reasons[store][sku] += f',销尽率优先({to_allocate})'
                     else:
                         allocation_reasons[store][sku] = f'销尽率优先({to_allocate})'
+
+                    # 记录追踪信息
+                    if tracker is not None:
+                        tracker.record_allocation(store, level, sku, to_allocate, f'销尽率优先({to_allocate})')
+                        total_inv_sales = sales_30d + current_inv
+                        detail_items = [
+                            {'name': '30天销量', 'expression': '历史销售数据', 'value': f'{sales_30d}件'},
+                            {'name': '当前库存', 'expression': '初始库存 + 已分配', 'value': f'{current_inv}件'},
+                            {'name': '销尽率', 'expression': f'{sales_30d} ÷ ({sales_30d} + {current_inv})', 'value': f'{sell_through:.1%}'},
+                            {'name': '等级权重', 'expression': f'{level}级', 'value': f'{weight}'},
+                            {'name': '综合得分', 'expression': f'{sell_through:.3f} × {weight}', 'value': f'{score:.3f}'},
+                            {'name': '分配上限', 'expression': f'max({sales_30d} × {weight}, 2)', 'value': f'{max_for_store}件'},
+                            {'name': '分配数量', 'expression': f'min({max_for_store} - {current_inv}, {remaining_qty + to_allocate})', 'value': f'{to_allocate}件'}
+                        ]
+                        tracker.record_store_detail(
+                            store, level, sku, 'sell_through_priority',
+                            store_data[store]['inventory'],
+                            sales_30d, store_data[store]['sell_through'],
+                            detail_items, to_allocate
+                        )
         return remaining_qty
     except Exception as e:
         print(f'Warning: Error in sell through priority stage: {e}')
         return remaining_qty
 
-def stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty, 
-                               level_order, max_remaining_per_store, store_level_map):
+def stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result, allocation_reasons, remaining_qty,
+                               level_order, max_remaining_per_store, store_level_map, tracker=None):
     """阶段4: 剩余分配（按等级优先级）"""
     try:
         for level in level_order:
             if remaining_qty <= 0:
                 break
-            
+
             level_stores = [s for s in stores_sorted if store_data[s]['level'] == level]
-            
+
             if level_stores:
                 for store in level_stores:
                     if remaining_qty <= 0:
                         break
-                    
+
                     current_inv = store_data[store]['inventory'] + allocation_result[store][sku]
-                    
+
                     if current_inv < max_remaining_per_store:
                         to_allocate = max_remaining_per_store - current_inv
                         to_allocate = min(to_allocate, remaining_qty)
-                        
+
                         if to_allocate > 0:
                             allocation_result[store][sku] += to_allocate
                             remaining_qty -= to_allocate
@@ -303,16 +362,33 @@ def stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result
                                 allocation_reasons[store][sku] += f',剩余分配({to_allocate})'
                             else:
                                 allocation_reasons[store][sku] = f'剩余分配({to_allocate})'
+
+                            # 记录追踪信息
+                            if tracker is not None:
+                                tracker.record_allocation(store, level, sku, to_allocate, f'剩余分配({to_allocate})')
+                                detail_items = [
+                                    {'name': '卖场等级', 'expression': level, 'value': level},
+                                    {'name': '当前库存', 'expression': '初始库存 + 已分配', 'value': f'{current_inv}件'},
+                                    {'name': '分配上限', 'expression': '单卖场上限', 'value': f'{max_remaining_per_store}件'},
+                                    {'name': '分配数量', 'expression': f'min({max_remaining_per_store} - {current_inv}, {remaining_qty + to_allocate})', 'value': f'{to_allocate}件'}
+                                ]
+                                tracker.record_store_detail(
+                                    store, level, sku, 'remaining_allocation',
+                                    store_data[store]['inventory'],
+                                    store_data[store]['sales_30d'],
+                                    store_data[store]['sell_through'],
+                                    detail_items, to_allocate
+                                )
         return remaining_qty
     except Exception as e:
         print(f'Warning: Error in remaining allocation stage: {e}')
         return remaining_qty
 
-def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, config=None):
+def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, config=None, tracker=None):
     try:
         if config is None:
             config = load_config()
-        
+
         alloc_config = config.get('allocation_config', DEFAULT_CONFIG['allocation_config'])
         coverage_days = alloc_config.get('coverage_days', DEFAULT_CONFIG['allocation_config']['coverage_days'])
         level_weights = alloc_config.get('level_weights', DEFAULT_CONFIG['allocation_config']['level_weights'])
@@ -320,7 +396,11 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
         min_target_inventory = alloc_config.get('min_target_inventory', DEFAULT_CONFIG['allocation_config']['min_target_inventory'])
         stage_priority = alloc_config.get('stage_priority', DEFAULT_CONFIG['allocation_config']['stage_priority'])
         max_remaining_per_store = alloc_config.get('max_remaining_per_store', 10)
-        
+
+        # 如果传入了tracker，保存配置快照
+        if tracker is not None:
+            tracker.set_config_snapshot(alloc_config)
+
         level_order = ['SA', 'A', 'B', 'C', 'D', 'OL']
         stores_sorted = []
         store_level_map = {}
@@ -329,7 +409,7 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
             stores_sorted.extend(level_stores)
             for store in level_stores:
                 store_level_map[store] = level
-        
+
         skus = []
         for idx, row in df_add_order.iterrows():
             skus.append({
@@ -337,52 +417,73 @@ def allocate_add_order(df_inventory, df_sales, df_store_level, df_add_order, con
                 'skc': row['SKC'],
                 'required_qty': int(row['需分配数量'])
             })
-        
+
         allocation_result = defaultdict(lambda: defaultdict(int))
         allocation_reasons = defaultdict(lambda: defaultdict(str))
-        
+
         stage_map = {
-            'broken_size_fix': lambda *args: stage_broken_size_fix(*args[:6]),
-            'sales_match': lambda *args: stage_sales_match(*args[:6], coverage_days, safety_factors, min_target_inventory),
-            'sell_through_priority': lambda *args: stage_sell_through_priority(*args[:6], level_weights)
+            'broken_size_fix': lambda *args: stage_broken_size_fix(*args[:6], tracker=tracker),
+            'sales_match': lambda *args: stage_sales_match(*args[:6], coverage_days, safety_factors, min_target_inventory, tracker=tracker),
+            'sell_through_priority': lambda *args: stage_sell_through_priority(*args[:6], level_weights, tracker=tracker)
         }
-        
+
         for sku_info in skus:
             sku = sku_info['sku']
             remaining_qty = sku_info['required_qty']
-            core_sizes = [160, 165]
-            
+
+            # 开始追踪此SKU
+            if tracker is not None:
+                tracker.start_sku(sku, remaining_qty)
+
             store_data = {}
             for store in stores_sorted:
                 inv = get_inventory(df_inventory, store, sku)
                 sales_30d = get_30day_sales(df_sales, sku, store)
                 level = get_store_level(df_store_level, store)
-                
+
                 total = sales_30d + inv
                 if total > 0:
                     sell_through = sales_30d / total
                 else:
                     sell_through = 0
-                
+
                 store_data[store] = {
                     'inventory': inv,
                     'sales_30d': sales_30d,
                     'level': level,
                     'sell_through': sell_through
                 }
-            
+
             for stage_name in stage_priority:
                 if remaining_qty <= 0:
                     break
                 if stage_name in stage_map:
-                    remaining_qty = stage_map[stage_name](stores_sorted, store_data, sku, allocation_result, 
+                    # 开始追踪此阶段
+                    if tracker is not None:
+                        tracker.start_stage(stage_name, remaining_qty)
+
+                    remaining_qty = stage_map[stage_name](stores_sorted, store_data, sku, allocation_result,
                                                            allocation_reasons, remaining_qty)
-            
+
+                    # 结束追踪此阶段
+                    if tracker is not None:
+                        tracker.end_stage(remaining_qty)
+
             if remaining_qty > 0:
-                remaining_qty = stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result, 
-                                                          allocation_reasons, remaining_qty, level_order, 
-                                                          max_remaining_per_store, store_level_map)
-        
+                if tracker is not None:
+                    tracker.start_stage('remaining_allocation', remaining_qty)
+
+                remaining_qty = stage_remaining_allocation(stores_sorted, store_data, sku, allocation_result,
+                                                          allocation_reasons, remaining_qty, level_order,
+                                                          max_remaining_per_store, store_level_map, tracker=tracker)
+
+                if tracker is not None:
+                    tracker.end_stage(remaining_qty)
+
+            # 结束追踪此SKU
+            if tracker is not None:
+                tracker.end_sku()
+
         return allocation_result, allocation_reasons, stores_sorted, skus, store_level_map
     except Exception as e:
         print(f'Error in allocate_add_order: {e}')

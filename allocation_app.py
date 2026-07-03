@@ -8,6 +8,8 @@ import sys
 import traceback
 import json
 from allocation_core import allocate_add_order, generate_result_dataframe, DEFAULT_CONFIG, load_config, VERSION
+from data_validator import generate_template, validate_file, apply_all_fixes
+from calculation_tracker import CalculationTracker, format_store_detail_text, format_flow_overview_text
 
 class AllocationApp:
     def __init__(self):
@@ -32,6 +34,8 @@ class AllocationApp:
             self.result_df = None
             self.reason_df = None
             self.stage_order_header = None
+            self.tracker = None
+            self.current_dfs = None
             
             self.stage_colors = [
                 ("#E8F5FF", "#2563EB"),
@@ -117,6 +121,7 @@ class AllocationApp:
         self.create_config_section(scrollable_frame)
         self.create_logic_section(scrollable_frame)
         self.create_file_upload_section(scrollable_frame)
+        self.create_flow_overview_section(scrollable_frame)
         self.create_result_section(scrollable_frame)
         self.create_status_bar(scrollable_frame)
     
@@ -615,10 +620,15 @@ class AllocationApp:
                                  cursor="arrow", state=tk.DISABLED, command=self.run_allocation)
         self.run_btn.pack(pady=(0, 8))
         
-        self.save_btn = tk.Button(action_content, text="导出清单", font=("SF Pro Display", 14, "bold"), 
-                                  bg="#1D4ED8", fg="white", relief=tk.FLAT, padx=40, pady=12, 
+        self.save_btn = tk.Button(action_content, text="导出清单", font=("SF Pro Display", 14, "bold"),
+                                  bg="#1D4ED8", fg="white", relief=tk.FLAT, padx=40, pady=12,
                                   cursor="arrow", state=tk.DISABLED, command=self.save_result)
         self.save_btn.pack()
+
+        template_btn = tk.Button(action_content, text="生成标准模板", font=("SF Pro Display", 12),
+                                bg="#3B82F6", fg="white", relief=tk.FLAT, padx=30, pady=8,
+                                cursor="hand2", command=self.generate_template_file)
+        template_btn.pack(pady=(8, 0))
     
     def create_result_section(self, parent):
         result_card = self.create_card_frame(parent)
@@ -638,16 +648,21 @@ class AllocationApp:
         
         right_frame = tk.Frame(header_frame, bg="#FFFFFF")
         right_frame.pack(side=tk.RIGHT)
-        
-        export_btn = tk.Button(right_frame, text="导出清单", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563", 
+
+        flow_btn = tk.Button(right_frame, text="查看详细流程", font=("SF Pro Display", 12), bg="#EFF6FF", fg="#2563EB",
+                             relief=tk.FLAT, padx=14, pady=6, cursor="hand2", command=self.show_flow_detail_window)
+        flow_btn.pack(side=tk.LEFT, padx=(0, 8))
+
+        export_btn = tk.Button(right_frame, text="导出清单", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563",
                                relief=tk.FLAT, padx=14, pady=6, cursor="hand2", command=self.save_result)
         export_btn.pack(side=tk.LEFT)
-        
+
         tree_container = tk.Frame(result_card, bg="#FFFFFF")
         tree_container.pack(fill=tk.X, padx=20, pady=(0, 14))
-        
+
         self.tree = ttk.Treeview(tree_container, show="headings", height=20)
         self.tree.pack(fill=tk.X)
+        self.tree.bind("<Button-1>", self.on_tree_click)
     
     def create_status_bar(self, parent):
         status_frame = tk.Frame(parent, bg="#FFFFFF")
@@ -682,38 +697,81 @@ class AllocationApp:
     
     def run_allocation(self):
         if not self.file_path:
-            messagebox.showwarning("提示", "请先选择Excel文件")
+            self.root.after(100, lambda: messagebox.showwarning("提示", "请先选择Excel文件"))
             return
-        
+
         try:
             self.update_status("● 处理中...", "#D97706")
             self.root.update()
-            
-            df_inventory = pd.read_excel(self.file_path, sheet_name="库存")
-            df_sales = pd.read_excel(self.file_path, sheet_name="销售")
-            df_store_level = pd.read_excel(self.file_path, sheet_name="卖场等级")
-            df_add_order = pd.read_excel(self.file_path, sheet_name="加单数量")
-            
+
+            # 读取Excel所有工作表
+            dfs = {}
+            try:
+                xls = pd.ExcelFile(self.file_path)
+                for sheet_name in xls.sheet_names:
+                    dfs[sheet_name] = pd.read_excel(xls, sheet_name=sheet_name)
+                xls.close()
+            except Exception as e:
+                self.update_status(f"✗ 读取文件失败: {str(e)}", "#DC2626")
+                self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"读取Excel文件失败:\n{err}"))
+                return
+
+            self.current_dfs = dfs
+
+            # 数据验证
+            self.update_status("● 数据验证中...", "#D97706")
+            self.root.update()
+
+            validation_result, dfs = validate_file(self.file_path, data_frames=dfs)
+
+            # 如果存在错误或警告，显示验证报告
+            if validation_result.has_errors or validation_result.has_warnings:
+                choice = self.show_validation_report(validation_result)
+
+                if choice == 'cancel' or choice is None:
+                    self.update_status("○ 已取消分配", "#6B7280")
+                    return
+                elif choice == 'fix':
+                    self.update_status("● 修复数据中...", "#D97706")
+                    self.root.update()
+                    dfs, fix_records = apply_all_fixes(dfs, validation_result)
+                    self.current_dfs = dfs
+                    if fix_records:
+                        fix_count = len(fix_records)
+                        self.root.after(100, lambda c=fix_count: messagebox.showinfo(
+                            "修复完成", f"已自动修复 {c} 项问题"))
+                # choice == 'continue': 使用原始数据继续
+
+            # 提取各表数据
+            df_inventory = dfs.get('库存')
+            df_sales = dfs.get('销售')
+            df_store_level = dfs.get('卖场等级')
+            df_add_order = dfs.get('加单数量')
+
             config = self.config if self.config else {}
             if "allocation_config" not in config:
                 config["allocation_config"] = {}
             config["allocation_config"]["stage_priority"] = [stage[0] for stage in self.stage_list[:3]]
-            
+
+            # 创建计算追踪器
+            self.tracker = CalculationTracker()
+
             allocation_result, allocation_reasons, stores_sorted, skus, store_level_map = allocate_add_order(
-                df_inventory, df_sales, df_store_level, df_add_order, config
+                df_inventory, df_sales, df_store_level, df_add_order, config, tracker=self.tracker
             )
-            
+
             stage_order = [stage[0] for stage in self.stage_list]
-            
+
             self.result_df, self.reason_df, self.stage_order_header = generate_result_dataframe(
                 allocation_result, allocation_reasons, stores_sorted, skus, store_level_map, stage_order
             )
-            
+
             self.display_result()
-            
+            self.update_flow_overview_card()
+
             self.update_status("✓ 分配完成", "#059669")
             self.save_btn.config(state=tk.NORMAL, cursor="hand2")
-            
+
             # 延迟显示消息框，避免 Mac Tkinter 崩溃
             self.root.after(100, lambda: messagebox.showinfo("成功", "加单分配完成"))
         except Exception as e:
@@ -764,7 +822,453 @@ class AllocationApp:
                 messagebox.showinfo("成功", f"结果已保存到:\n{file_path}")
             except Exception as e:
                 messagebox.showerror("错误", f"保存结果失败:\n{str(e)}")
-    
+
+    def generate_template_file(self):
+        """生成标准格式的Excel模板"""
+        file_path = filedialog.asksaveasfilename(
+            title="保存标准模板",
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+            initialfile="加单分配模板.xlsx"
+        )
+        if not file_path:
+            return
+
+        try:
+            success = generate_template(file_path)
+            if success:
+                self.update_status(f"✓ 模板已生成: {os.path.basename(file_path)}", "#059669")
+                self.root.after(100, lambda fp=file_path: messagebox.showinfo("成功", f"标准模板已生成:\n{fp}"))
+            else:
+                self.root.after(100, lambda: messagebox.showerror("错误", "模板生成失败，请检查路径权限"))
+        except Exception as e:
+            self.root.after(100, lambda err=str(e): messagebox.showerror("错误", f"生成模板失败:\n{err}"))
+
+    def show_validation_report(self, validation_result):
+        """显示数据验证报告窗口，返回用户选择: 'continue', 'fix', 'cancel'"""
+        win = tk.Toplevel(self.root)
+        win.title("数据验证报告")
+        win.geometry("780x620")
+        win.transient(self.root)
+        win.grab_set()
+
+        self.validation_choice = None
+
+        # 顶部摘要栏
+        header = tk.Frame(win, bg="#2563EB")
+        header.pack(fill=tk.X)
+
+        tk.Label(header, text="📋 数据验证报告", font=("SF Pro Display", 15, "bold"),
+                 bg="#2563EB", fg="white", pady=12, padx=20).pack(side=tk.LEFT)
+
+        summary = validation_result.get_summary()
+        summary_text = f"通过 {summary['passed']}  |  警告 {summary['warnings']}  |  错误 {summary['errors']}"
+        tk.Label(header, text=summary_text, font=("SF Pro Display", 12),
+                 bg="#2563EB", fg="#BFDBFE", pady=12, padx=20).pack(side=tk.RIGHT)
+
+        # 可滚动内容区
+        content_container = tk.Frame(win, bg="#FFFFFF")
+        content_container.pack(fill=tk.BOTH, expand=True)
+
+        canvas = tk.Canvas(content_container, bg="#FFFFFF", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(content_container, orient="vertical", command=canvas.yview)
+        scrollable = tk.Frame(canvas, bg="#FFFFFF")
+
+        scrollable.bind("<Configure>",
+                        lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=16)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # 按工作表分组显示问题
+        all_issues = []
+        for err in validation_result.errors:
+            all_issues.append(('error', err))
+        for warn in validation_result.warnings:
+            all_issues.append(('warning', warn))
+
+        sheets_order = ['文件', '库存', '销售', '卖场等级', '加单数量']
+        sheets_present = set(item.get('sheet', '') for _, item in all_issues)
+
+        has_content = False
+        for sheet_name in sheets_order:
+            if sheet_name not in sheets_present:
+                continue
+            has_content = True
+
+            sheet_frame = tk.Frame(scrollable, bg="#F9FAFB")
+            sheet_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
+            sheet_frame.pack(fill=tk.X, pady=(0, 8))
+
+            tk.Label(sheet_frame, text=f"📄 {sheet_name}", font=("SF Pro Display", 13, "bold"),
+                     bg="#F9FAFB", fg="#1F2937", padx=12, pady=8).pack(anchor=tk.W)
+
+            for issue_type, item in all_issues:
+                if item.get('sheet') != sheet_name:
+                    continue
+                if issue_type == 'error':
+                    self._add_validation_item(scrollable, "✗", item, "#DC2626")
+                else:
+                    self._add_validation_item(scrollable, "⚠", item, "#D97706")
+
+        if not has_content:
+            tk.Label(scrollable, text="✓ 未发现验证问题", font=("SF Pro Display", 13),
+                     bg="#FFFFFF", fg="#059669", pady=40).pack()
+
+        # 底部按钮区
+        btn_frame = tk.Frame(win, bg="#FFFFFF")
+        btn_frame.pack(fill=tk.X, padx=20, pady=12)
+
+        cancel_btn = tk.Button(btn_frame, text="取消分配", font=("SF Pro Display", 12),
+                              bg="#F3F4F6", fg="#4B5563", relief=tk.FLAT, padx=18, pady=8,
+                              cursor="hand2", command=lambda: self._set_validation_choice(win, 'cancel'))
+        cancel_btn.pack(side=tk.RIGHT)
+
+        has_fixable = any(e.get('fixable') for e in validation_result.errors) or \
+                     any(w.get('fixable') for w in validation_result.warnings)
+
+        if has_fixable:
+            fix_btn = tk.Button(btn_frame, text="🔧 修复后重试", font=("SF Pro Display", 12, "bold"),
+                                bg="#D97706", fg="white", relief=tk.FLAT, padx=18, pady=8,
+                                cursor="hand2", command=lambda: self._set_validation_choice(win, 'fix'))
+            fix_btn.pack(side=tk.RIGHT, padx=(0, 8))
+
+        continue_btn = tk.Button(btn_frame, text="忽略警告继续", font=("SF Pro Display", 12, "bold"),
+                                bg="#2563EB", fg="white", relief=tk.FLAT, padx=18, pady=8,
+                                cursor="hand2", command=lambda: self._set_validation_choice(win, 'continue'))
+        continue_btn.pack(side=tk.RIGHT, padx=(0, 8))
+
+        self.root.wait_window(win)
+        return self.validation_choice
+
+    def _set_validation_choice(self, win, choice):
+        """设置验证报告窗口的用户选择并关闭窗口"""
+        self.validation_choice = choice
+        win.destroy()
+
+    def _add_validation_item(self, parent, icon, item, color):
+        """添加一条验证问题到报告"""
+        row = tk.Frame(parent, bg="#FFFFFF")
+        row.pack(fill=tk.X, padx=(8, 8), pady=(0, 4))
+
+        tk.Label(row, text=icon, font=("SF Pro Display", 12, "bold"),
+                 bg="#FFFFFF", fg=color, width=2).pack(side=tk.LEFT)
+
+        loc_parts = []
+        if item.get('row'):
+            loc_parts.append(f"行{item['row']}")
+        if item.get('column'):
+            loc_parts.append(f"列'{item['column']}'")
+        loc_text = " ".join(loc_parts)
+
+        if loc_text:
+            tk.Label(row, text=loc_text, font=("SF Pro Display", 11),
+                     bg="#FFFFFF", fg="#6B7280").pack(side=tk.LEFT, padx=(4, 8))
+
+        tk.Label(row, text=item.get('message', ''), font=("SF Pro Display", 11),
+                 bg="#FFFFFF", fg="#1F2937", wraplength=520, justify=tk.LEFT).pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        if item.get('fixable'):
+            tk.Label(row, text="可修复", font=("SF Pro Display", 10),
+                     bg="#FEF3C7", fg="#92400E", padx=6, pady=2).pack(side=tk.LEFT, padx=(8, 0))
+
+    def create_flow_overview_section(self, parent):
+        """创建分配流程概览卡片"""
+        flow_card = self.create_card_frame(parent)
+        flow_card.pack(fill=tk.X, pady=(0, 16))
+
+        self.flow_expanded = True
+
+        header_frame = tk.Frame(flow_card, bg="#FFFFFF")
+        header_frame.pack(fill=tk.X, pady=14, padx=20)
+        header_frame.bind("<Button-1>", self.toggle_flow)
+        header_frame.config(cursor="hand2")
+
+        self.flow_toggle = tk.Label(header_frame, text="▼", font=("SF Pro Display", 14),
+                                    bg="#FFFFFF", fg="#6B7280")
+        self.flow_toggle.pack(side=tk.RIGHT)
+        self.flow_toggle.bind("<Button-1>", self.toggle_flow)
+        self.flow_toggle.config(cursor="hand2")
+
+        icon_label = tk.Label(header_frame, text="🔀", font=("SF Pro Display", 16),
+                              bg="#FFFFFF", fg="#2563EB")
+        icon_label.pack(side=tk.LEFT)
+        icon_label.bind("<Button-1>", self.toggle_flow)
+        icon_label.config(cursor="hand2")
+
+        flow_title = tk.Label(header_frame, text="分配流程概览", font=("SF Pro Display", 15, "bold"),
+                              bg="#FFFFFF", fg="#1F2937")
+        flow_title.pack(side=tk.LEFT, padx=(8, 0))
+        flow_title.bind("<Button-1>", self.toggle_flow)
+        flow_title.config(cursor="hand2")
+
+        detail_btn = tk.Button(header_frame, text="查看详细流程", font=("SF Pro Display", 12),
+                               bg="#EFF6FF", fg="#2563EB", relief=tk.FLAT, padx=12, pady=6,
+                               cursor="hand2", command=self.show_flow_detail_window)
+        detail_btn.pack(side=tk.RIGHT, padx=(8, 0))
+
+        self.flow_content = tk.Frame(flow_card, bg="#FFFFFF")
+        self.flow_content.pack(fill=tk.X, padx=20, pady=(0, 14))
+
+        self.flow_overview_labels = []
+        for i, (stage_id, name, desc) in enumerate(self.stage_list):
+            bg_color, fg_color = self.stage_colors[i] if i < len(self.stage_colors) else self.stage_colors[-1]
+
+            row_frame = tk.Frame(self.flow_content, bg=bg_color)
+            row_frame.config(highlightbackground="#E5E7EB", highlightcolor="#E5E7EB", highlightthickness=1)
+            row_frame.pack(fill=tk.X, pady=(0, 8))
+
+            inner = tk.Frame(row_frame, bg=bg_color)
+            inner.pack(fill=tk.X, padx=12, pady=8)
+
+            num_frame = tk.Frame(inner, bg="#FFFFFF", width=24, height=24)
+            num_frame.pack(side=tk.LEFT, padx=(0, 8))
+            num_frame.pack_propagate(False)
+            tk.Label(num_frame, text=str(i + 1), font=("SF Pro Display", 11, "bold"),
+                     bg="#FFFFFF", fg=fg_color).pack(fill=tk.BOTH, expand=True)
+
+            tk.Label(inner, text=name, font=("SF Pro Display", 12, "bold"),
+                     bg=bg_color, fg="#1F2937", width=12, anchor="w").pack(side=tk.LEFT)
+
+            qty_label = tk.Label(inner, text="-- 件", font=("SF Pro Display", 12),
+                                bg=bg_color, fg="#6B7280", width=12, anchor="e")
+            qty_label.pack(side=tk.LEFT, padx=(16, 0))
+
+            pct_label = tk.Label(inner, text="--%", font=("SF Pro Display", 12, "bold"),
+                                 bg=bg_color, fg=fg_color, width=10, anchor="e")
+            pct_label.pack(side=tk.RIGHT)
+
+            self.flow_overview_labels.append((stage_id, name, qty_label, pct_label))
+
+        self.flow_placeholder = tk.Label(self.flow_content, text="尚未执行分配，请先点击“开始计算”",
+                                        font=("SF Pro Display", 11), bg="#FFFFFF", fg="#9CA3AF")
+        self.flow_placeholder.pack(pady=(4, 0))
+
+    def toggle_flow(self, event=None):
+        """折叠/展开流程概览卡片"""
+        if self.flow_expanded:
+            self.flow_content.pack_forget()
+            self.flow_toggle.config(text="▶")
+        else:
+            self.flow_content.pack(fill=tk.X, padx=20, pady=(0, 14))
+            self.flow_toggle.config(text="▼")
+        self.flow_expanded = not self.flow_expanded
+
+    def update_flow_overview_card(self):
+        """分配完成后更新流程概览卡片"""
+        if self.tracker is None or not hasattr(self, 'flow_overview_labels'):
+            return
+
+        # 汇总各阶段分配量
+        stage_totals = {}
+        total_required = 0
+        total_allocated = 0
+
+        for sku, tracking in self.tracker.sku_trackings.items():
+            total_required += tracking.required_qty
+            total_allocated += tracking.total_allocated
+            for stage in tracking.stages:
+                stage_id = stage.stage_name
+                stage_totals[stage_id] = stage_totals.get(stage_id, 0) + stage.total_allocated
+
+        for stage_id, name, qty_label, pct_label in self.flow_overview_labels:
+            allocated = stage_totals.get(stage_id, 0)
+            percentage = 0
+            if total_required > 0:
+                percentage = round(allocated / total_required * 100, 1)
+            qty_label.config(text=f"{allocated} 件")
+            pct_label.config(text=f"{percentage}%")
+
+        if hasattr(self, 'flow_placeholder'):
+            self.flow_placeholder.config(text=f"合计已分配 {total_allocated} 件 / 需分配 {total_required} 件")
+
+    def on_tree_click(self, event):
+        """结果表格单元格点击事件，显示该卖场SKU的计算详情"""
+        if self.tracker is None or self.result_df is None:
+            return
+
+        region = self.tree.identify("region", event.x, event.y)
+        if region != "cell":
+            return
+
+        row_id = self.tree.identify_row(event.y)
+        col = self.tree.identify_column(event.x)
+
+        if not row_id or not col:
+            return
+
+        try:
+            col_index = int(col.replace("#", "")) - 1
+        except ValueError:
+            return
+
+        # 跳过卖场名称列（索引0），只响应SKU列点击
+        if col_index < 1:
+            return
+
+        columns = list(self.result_df.columns)
+        if col_index >= len(columns):
+            return
+
+        sku = columns[col_index]
+        try:
+            store_code = str(self.tree.set(row_id, columns[0]))
+        except Exception:
+            return
+
+        self.show_store_detail_window(store_code, sku)
+
+    def show_store_detail_window(self, store_code, sku):
+        """显示单个卖场SKU的计算详情窗口"""
+        if self.tracker is None:
+            self.root.after(100, lambda: messagebox.showinfo("提示", "请先执行分配"))
+            return
+
+        store_calc = self.tracker.get_store_detail(store_code, sku)
+        if store_calc is None:
+            self.root.after(100, lambda sc=store_code, sk=sku: messagebox.showinfo(
+                "提示", f"未找到卖场 {sc} 对SKU {sk} 的计算详情\n（该卖场可能未参与分配）"))
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title(f"计算详情 - {store_code} / {sku}")
+        win.geometry("720x640")
+        win.transient(self.root)
+
+        header = tk.Frame(win, bg="#2563EB")
+        header.pack(fill=tk.X)
+        tk.Label(header, text=f"🔍 计算详情 - 卖场 {store_code} / SKU {sku}",
+                 font=("SF Pro Display", 14, "bold"), bg="#2563EB", fg="white",
+                 pady=12, padx=20).pack(side=tk.LEFT)
+
+        body = tk.Frame(win, bg="#FFFFFF")
+        body.pack(fill=tk.BOTH, expand=True)
+
+        text_widget = tk.Text(body, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#1F2937",
+                              wrap=tk.WORD, padx=20, pady=16, relief=tk.FLAT, borderwidth=0)
+        scrollbar = ttk.Scrollbar(body, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        text = format_store_detail_text(store_calc, self.tracker.get_config_snapshot())
+        text_widget.insert("1.0", text)
+        text_widget.config(state=tk.DISABLED)
+
+        btn_frame = tk.Frame(win, bg="#FFFFFF")
+        btn_frame.pack(fill=tk.X, padx=20, pady=12)
+        tk.Button(btn_frame, text="关闭", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563",
+                  relief=tk.FLAT, padx=20, pady=8, cursor="hand2", command=win.destroy).pack(side=tk.RIGHT)
+
+    def show_flow_detail_window(self):
+        """显示四阶段流程追踪窗口"""
+        if self.tracker is None:
+            self.root.after(100, lambda: messagebox.showinfo("提示", "请先执行分配"))
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title("四阶段流程追踪")
+        win.geometry("820x720")
+        win.transient(self.root)
+
+        header = tk.Frame(win, bg="#2563EB")
+        header.pack(fill=tk.X)
+        tk.Label(header, text="🔀 四阶段流程追踪", font=("SF Pro Display", 15, "bold"),
+                 bg="#2563EB", fg="white", pady=12, padx=20).pack(side=tk.LEFT)
+
+        body = tk.Frame(win, bg="#FFFFFF")
+        body.pack(fill=tk.BOTH, expand=True)
+
+        text_widget = tk.Text(body, font=("SF Pro Display", 12), bg="#FFFFFF", fg="#1F2937",
+                              wrap=tk.WORD, padx=20, pady=16, relief=tk.FLAT, borderwidth=0)
+        scrollbar = ttk.Scrollbar(body, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        lines = []
+        sku_list = self.tracker.get_all_sku_skus()
+
+        # 汇总各阶段统计
+        lines.append("═" * 50)
+        lines.append("  分配流程总览")
+        lines.append("═" * 50)
+        lines.append("")
+
+        stage_totals = {}
+        stage_store_sets = {}
+        total_required = 0
+        total_allocated = 0
+
+        for sku in sku_list:
+            tracking = self.tracker.get_sku_tracking(sku)
+            if tracking is None:
+                continue
+            total_required += tracking.required_qty
+            total_allocated += tracking.total_allocated
+            for stage in tracking.stages:
+                sid = stage.stage_name
+                stage_totals[sid] = stage_totals.get(sid, 0) + stage.total_allocated
+                if sid not in stage_store_sets:
+                    stage_store_sets[sid] = set()
+                for alloc in stage.allocation_results:
+                    stage_store_sets[sid].add(alloc['store_code'])
+
+        lines.append(f"追踪SKU数: {len(sku_list)}  |  需分配总量: {total_required}件  |  已分配总量: {total_allocated}件")
+        if total_required > 0:
+            lines.append(f"总体完成度: {round(total_allocated / total_required * 100, 1)}%")
+        lines.append("")
+
+        # 各阶段明细（含规则与公式）
+        for i, (stage_id, name, desc) in enumerate(self.stage_list):
+            allocated = stage_totals.get(stage_id, 0)
+            store_count = len(stage_store_sets.get(stage_id, set()))
+            percentage = 0
+            if total_required > 0:
+                percentage = round(allocated / total_required * 100, 1)
+
+            lines.append(f"── 阶段{i + 1}：{name} ──")
+            lines.append(f"   分配量: {allocated}件 ({percentage}%)  |  参与卖场数: {store_count}")
+
+            # 从tracker获取该阶段的规则与公式
+            for sku in sku_list:
+                tracking = self.tracker.get_sku_tracking(sku)
+                if tracking:
+                    for stage in tracking.stages:
+                        if stage.stage_name == stage_id:
+                            if stage.rules:
+                                lines.append(f"   规则: {stage.rules}")
+                            for formula in stage.formulas:
+                                lines.append(f"   · {formula['name']} = {formula['expression']}")
+                                if formula.get('explanation'):
+                                    lines.append(f"     ({formula['explanation']})")
+                            break
+                    break
+
+            lines.append("")
+
+        lines.append("─" * 50)
+        lines.append("  各SKU流程明细")
+        lines.append("─" * 50)
+        lines.append("")
+
+        for sku in sku_list:
+            overview = self.tracker.generate_flow_overview(sku)
+            if overview:
+                lines.append(format_flow_overview_text(overview))
+                lines.append("─" * 50)
+                lines.append("")
+
+        text_widget.insert("1.0", "\n".join(lines))
+        text_widget.config(state=tk.DISABLED)
+
+        btn_frame = tk.Frame(win, bg="#FFFFFF")
+        btn_frame.pack(fill=tk.X, padx=20, pady=12)
+        tk.Button(btn_frame, text="关闭", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563",
+                  relief=tk.FLAT, padx=20, pady=8, cursor="hand2", command=win.destroy).pack(side=tk.RIGHT)
+
     def open_donate(self, event=None):
         import webbrowser
         webbrowser.open("https://duiliuliu.github.io/sponsor-page/")
