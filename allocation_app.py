@@ -633,19 +633,19 @@ class AllocationApp:
     def create_result_section(self, parent):
         result_card = self.create_card_frame(parent)
         result_card.pack(fill=tk.X, pady=(0, 16))
-        
+
         header_frame = tk.Frame(result_card, bg="#FFFFFF")
         header_frame.pack(fill=tk.X, pady=14, padx=20)
-        
+
         left_frame = tk.Frame(header_frame, bg="#FFFFFF")
         left_frame.pack(side=tk.LEFT)
-        
+
         icon_label = tk.Label(left_frame, text="📋", font=("SF Pro Display", 16), bg="#FFFFFF", fg="#2563EB")
         icon_label.pack(side=tk.LEFT)
-        
+
         result_title = tk.Label(left_frame, text="分配结果预览（前20行）", font=("SF Pro Display", 15, "bold"), bg="#FFFFFF", fg="#1F2937")
         result_title.pack(side=tk.LEFT, padx=(8, 0))
-        
+
         right_frame = tk.Frame(header_frame, bg="#FFFFFF")
         right_frame.pack(side=tk.RIGHT)
 
@@ -656,6 +656,22 @@ class AllocationApp:
         export_btn = tk.Button(right_frame, text="导出清单", font=("SF Pro Display", 12), bg="#F3F4F6", fg="#4B5563",
                                relief=tk.FLAT, padx=14, pady=6, cursor="hand2", command=self.save_result)
         export_btn.pack(side=tk.LEFT)
+
+        # 卖场搜索框
+        search_frame = tk.Frame(result_card, bg="#FFFFFF")
+        search_frame.pack(fill=tk.X, padx=20, pady=(0, 8))
+
+        tk.Label(search_frame, text="🔍 卖场检索:", font=("SF Pro Display", 12), bg="#FFFFFF", fg="#6B7280").pack(side=tk.LEFT)
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", lambda *_: self.filter_results())
+        search_entry = tk.Entry(search_frame, textvariable=self.search_var, font=("SF Pro Display", 12),
+                                bg="#F9FAFB", fg="#1F2937", relief=tk.SOLID, bd=1)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 0), ipady=4)
+
+        clear_btn = tk.Button(search_frame, text="清除", font=("SF Pro Display", 11), bg="#F3F4F6", fg="#6B7280",
+                              relief=tk.FLAT, padx=10, pady=2, cursor="hand2",
+                              command=lambda: self.search_var.set(""))
+        clear_btn.pack(side=tk.LEFT, padx=(6, 0))
 
         tree_container = tk.Frame(result_card, bg="#FFFFFF")
         tree_container.pack(fill=tk.X, padx=20, pady=(0, 14))
@@ -784,24 +800,37 @@ class AllocationApp:
     def display_result(self):
         if self.result_df is None or len(self.result_df) == 0:
             return
-        
+
         for item in self.tree.get_children():
             self.tree.delete(item)
-        
+
         columns = list(self.result_df.columns)
         self.tree["columns"] = columns
         for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=100)
-        
-        for _, row in self.result_df.head(20).iterrows():
+
+        # 根据搜索关键词过滤显示
+        keyword = self.search_var.get().strip() if hasattr(self, 'search_var') else ""
+        display_df = self.result_df
+        if keyword:
+            mask = display_df['卖场'].astype(str).str.contains(keyword, case=False, na=False)
+            display_df = display_df[mask]
+
+        for _, row in display_df.head(20).iterrows():
             self.tree.insert("", tk.END, values=list(row))
+
+    def filter_results(self):
+        """根据搜索框输入实时过滤结果预览"""
+        if self.result_df is None or len(self.result_df) == 0:
+            return
+        self.display_result()
     
     def save_result(self):
         if self.result_df is None:
             messagebox.showwarning("提示", "请先执行分配")
             return
-        
+
         file_path = filedialog.asksaveasfilename(
             title="保存分配结果",
             defaultextension=".xlsx",
@@ -811,17 +840,55 @@ class AllocationApp:
             try:
                 with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
                     self.result_df.to_excel(writer, sheet_name="分配数量", index=False)
-                    
+
+                    # 如果有tracker，生成包含完整计算详情的分配原因
+                    if self.tracker is not None and self.reason_df is not None:
+                        detail_reason_df = self._build_detail_reason_df()
+                    else:
+                        detail_reason_df = self.reason_df
+
                     if self.stage_order_header:
                         header_df = pd.DataFrame([[self.stage_order_header]])
                         header_df.to_excel(writer, sheet_name="分配原因", index=False, header=False, startrow=0)
-                        self.reason_df.to_excel(writer, sheet_name="分配原因", index=False, startrow=2)
+                        detail_reason_df.to_excel(writer, sheet_name="分配原因", index=False, startrow=2)
                     else:
-                        self.reason_df.to_excel(writer, sheet_name="分配原因", index=False)
-                        
+                        detail_reason_df.to_excel(writer, sheet_name="分配原因", index=False)
+
+                    # 设置分配原因单元格自动换行
+                    from openpyxl.utils import get_column_letter
+                    workbook = writer.book
+                    ws = workbook["分配原因"]
+                    for row in ws.iter_rows(min_row=1):
+                        for cell in row:
+                            cell.alignment = cell.alignment.copy(wrap_text=True, vertical="top")
+                    # 加宽前两列，SKU列自适应
+                    ws.column_dimensions['A'].width = 14
+                    if detail_reason_df is not None and len(detail_reason_df.columns) > 1:
+                        ws.column_dimensions['B'].width = 10
+                        for col_idx in range(3, len(detail_reason_df.columns) + 1):
+                            ws.column_dimensions[get_column_letter(col_idx)].width = 50
+
                 messagebox.showinfo("成功", f"结果已保存到:\n{file_path}")
             except Exception as e:
                 messagebox.showerror("错误", f"保存结果失败:\n{str(e)}")
+
+    def _build_detail_reason_df(self):
+        """构建包含完整计算详情的分配原因DataFrame"""
+        if self.reason_df is None:
+            return None
+
+        detail_df = self.reason_df.copy()
+        sku_columns = [c for c in detail_df.columns if c not in ('卖场', '卖场等级')]
+
+        for idx in detail_df.index:
+            store_code = str(detail_df.at[idx, '卖场'])
+            for sku in sku_columns:
+                store_calc = self.tracker.get_store_detail(store_code, sku)
+                if store_calc is not None:
+                    full_text = format_store_detail_text(store_calc, self.tracker.get_config_snapshot())
+                    detail_df.at[idx, sku] = full_text
+
+        return detail_df
 
     def generate_template_file(self):
         """生成标准格式的Excel模板"""
